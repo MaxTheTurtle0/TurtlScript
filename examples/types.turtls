@@ -1,0 +1,19 @@
+const answer = 42;
+const limit: int = 100;
+let name: string = "Turtl";
+let ready: bool = true;
+
+const add = fn(a: int, b: int) -> int { a + b; };
+const double = fn(n: int) { n * 2; };
+let operation: fn(int, int) -> int = add;
+const apply = fn(f: fn(int) -> int, x: int) -> int { f(x); };
+
+print(name + " is ready=" + str(ready));
+print(operation(answer, 1));
+print(apply(double, 21));
+print(answer < limit);
+
+// Types can also be inferred through closures and calls.
+const make_adder = fn(x) { fn(y) { x + y; }; };
+const add_five = make_adder(5);
+print(add_five(3));

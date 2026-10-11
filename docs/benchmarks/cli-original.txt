@@ -1,0 +1,11 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics
+BenchmarkCLIFile 	       1	 350733355 ns/op	   2.99 MB/s
+BenchmarkCLIFile 	       1	 352577519 ns/op	   2.97 MB/s
+BenchmarkCLIFile 	       1	 311412425 ns/op	   3.37 MB/s
+BenchmarkCLIFile 	       1	 333269676 ns/op	   3.15 MB/s
+BenchmarkCLIFile 	       1	 359011836 ns/op	   2.92 MB/s
+PASS
+ok  	go/interpreter/benchmarks	3.356s

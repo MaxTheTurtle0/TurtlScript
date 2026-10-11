@@ -1,0 +1,56 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics
+BenchmarkPipeline/small/lex     	 2662533	       182.1 ns/op	 362.41 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/small/lex     	 2626948	       183.0 ns/op	 360.68 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/small/lex     	 2657923	       181.8 ns/op	 363.13 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/small/lex     	 2663761	       184.8 ns/op	 357.12 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/small/lex     	 2619984	       181.2 ns/op	 364.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/small/parse   	  460431	      1064 ns/op	    1432 B/op	      29 allocs/op
+BenchmarkPipeline/small/parse   	  409866	      1044 ns/op	    1432 B/op	      29 allocs/op
+BenchmarkPipeline/small/parse   	  415796	      1120 ns/op	    1432 B/op	      29 allocs/op
+BenchmarkPipeline/small/parse   	  404539	      1070 ns/op	    1432 B/op	      29 allocs/op
+BenchmarkPipeline/small/parse   	  414332	      1054 ns/op	    1432 B/op	      29 allocs/op
+BenchmarkPipeline/small/eval    	 3567769	       134.3 ns/op	     200 B/op	       4 allocs/op
+BenchmarkPipeline/small/eval    	 3543355	       133.8 ns/op	     200 B/op	       4 allocs/op
+BenchmarkPipeline/small/eval    	 3566553	       138.3 ns/op	     200 B/op	       4 allocs/op
+BenchmarkPipeline/small/eval    	 3569473	       139.2 ns/op	     200 B/op	       4 allocs/op
+BenchmarkPipeline/small/eval    	 3499530	       134.8 ns/op	     200 B/op	       4 allocs/op
+BenchmarkPipeline/small/run     	  362185	      1203 ns/op	    1632 B/op	      33 allocs/op
+BenchmarkPipeline/small/run     	  359794	      1212 ns/op	    1632 B/op	      33 allocs/op
+BenchmarkPipeline/small/run     	  356880	      1229 ns/op	    1632 B/op	      33 allocs/op
+BenchmarkPipeline/small/run     	  358962	      1214 ns/op	    1632 B/op	      33 allocs/op
+BenchmarkPipeline/small/run     	  358347	      1248 ns/op	    1632 B/op	      33 allocs/op
+BenchmarkPipeline/large/lex     	   23672	     20206 ns/op	 444.46 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/large/lex     	   23640	     20293 ns/op	 442.57 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/large/lex     	   23625	     20360 ns/op	 441.11 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/large/lex     	   23692	     20267 ns/op	 443.14 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/large/lex     	   23320	     20401 ns/op	 440.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPipeline/large/parse   	    5608	     74419 ns/op	  133720 B/op	      45 allocs/op
+BenchmarkPipeline/large/parse   	    6758	     74114 ns/op	  133720 B/op	      45 allocs/op
+BenchmarkPipeline/large/parse   	    6532	     73966 ns/op	  133720 B/op	      45 allocs/op
+BenchmarkPipeline/large/parse   	    6344	     73048 ns/op	  133720 B/op	      45 allocs/op
+BenchmarkPipeline/large/parse   	    5758	     76185 ns/op	  133720 B/op	      45 allocs/op
+BenchmarkPipeline/large/eval    	   45054	     10071 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkPipeline/large/eval    	   46890	     10100 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkPipeline/large/eval    	   46839	     10056 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkPipeline/large/eval    	   47318	     10128 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkPipeline/large/eval    	   47086	      9995 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkPipeline/large/run     	    5193	     80195 ns/op	  135952 B/op	     303 allocs/op
+BenchmarkPipeline/large/run     	    5736	     80258 ns/op	  135952 B/op	     303 allocs/op
+BenchmarkPipeline/large/run     	    5551	     81636 ns/op	  135952 B/op	     303 allocs/op
+BenchmarkPipeline/large/run     	    5954	     79607 ns/op	  135952 B/op	     303 allocs/op
+BenchmarkPipeline/large/run     	    5484	     79925 ns/op	  135952 B/op	     303 allocs/op
+BenchmarkFunctions/factorial    	  188496	      2409 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkFunctions/factorial    	  189464	      2415 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkFunctions/factorial    	  187582	      2483 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkFunctions/factorial    	  192481	      2445 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkFunctions/factorial    	  191584	      2447 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkFunctions/fibonacci    	    1138	    420997 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkFunctions/fibonacci    	    1062	    418896 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkFunctions/fibonacci    	    1135	    416162 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkFunctions/fibonacci    	    1114	    416495 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkFunctions/fibonacci    	    1113	    428009 ns/op	  626056 B/op	    9581 allocs/op
+PASS
+ok  	go/interpreter/benchmarks	26.977s
