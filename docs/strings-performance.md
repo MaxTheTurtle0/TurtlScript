@@ -2,9 +2,9 @@
 
 Measured on October 11, 2026, with Go 1.24.4 on Linux amd64 and an AMD Ryzen 7 8745HS. Each result is the median of five samples, with a 200 ms target per sample and one Go execution thread. Benchmarks ran separately from tests, fuzzing, profiling, and browser rendering.
 
-The string baseline is the first working implementation from this continuation. The original interpreter had no strings. That baseline decoded every literal through `strconv.Unquote` and implemented slicing by converting the full string to a rune array, then copying the result into a new string.
+The baseline is the first working string implementation. The original interpreter had no strings. The baseline decoded every literal through `strconv.Unquote` and implemented slicing by converting the full string to a slice of runes, then copying the result into a new string.
 
-The optimized lexer returns a validated source substring for literals without escapes. Escaped literals still use Go's decoder. Slicing now scans for the requested code point boundaries and returns a substring of the immutable input.
+The optimized lexer returns a validated source substring for literals without escapes. Escaped literals still use Go's decoder. The optimized slicing operation scans for the requested code point boundaries and returns a substring of the immutable input.
 
 These measurements precede static typing. See [the typing measurements](types-performance.md) for the current pipeline's checking cost.
 
@@ -53,7 +53,9 @@ Complete numeric runs remained within a few percent of the preceding implementat
 
 ## Reproduce
 
-Measure the current implementation:
+The project now uses Go 1.27.2. To run these workloads with the recorded Go 1.24.4 toolchain, use the [historical checkout instructions](development.md#historical-measurements). The commands below use the toolchain selected by the checkout.
+
+Measure the implementation:
 
 ```sh
 go test ./benchmarks -run '^$' -bench 'BenchmarkString|BenchmarkPipeline|BenchmarkFunctions' -benchmem -benchtime=200ms -count=5 -cpu=1
@@ -69,4 +71,4 @@ git -C "$strings_baseline_dir" apply --reverse "$PWD/docs/benchmarks/strings-opt
 go -C "$strings_baseline_dir" test ./benchmarks -run '^$' -bench 'BenchmarkString' -benchmem -benchtime=200ms -count=5 -cpu=1
 ```
 
-Raw samples: [first working strings](benchmarks/strings-baseline.txt), [numeric interpreter before strings](benchmarks/numeric-before-strings.txt), and [final implementation](benchmarks/with-strings.txt). The [optimization patch](benchmarks/strings-optimization.patch) reconstructs the measured string baseline exactly. The numeric baseline is an intermediate working tree snapshot, rather than a tagged version.
+Raw samples: [first working strings](benchmarks/strings-baseline.txt), [numeric interpreter before strings](benchmarks/numeric-before-strings.txt), and [optimized strings](benchmarks/with-strings.txt). The [optimization patch](benchmarks/strings-optimization.patch) reconstructs the measured string baseline's Go sources. The numeric baseline is an intermediate working tree snapshot, rather than a tagged version.

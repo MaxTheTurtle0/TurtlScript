@@ -1,39 +1,39 @@
-# Suggested language additions
+# Roadmap
 
-I'd keep the first round of performance work ahead of new syntax. We now have useful baselines and a working core. Each new feature should bring its own correctness tests and representative benchmark.
+The next language additions are collections, floating-point numbers, iteration, and modules. Each addition needs defined behavior, correctness tests, and representative benchmarks. New syntax requires approval before implementation.
 
-## Strings are working
+The current syntax and supported types are documented in the [language guide](language.md) and [type system guide](types.md).
 
-Quoted UTF-8 strings, escape sequences, concatenation, and content comparisons now work. The text built-ins are `len`, `byte_len`, `contains`, `slice`, and `str`. Length and slice indexes count code points; `byte_len` counts bytes. The README documents the details, including combining characters and invalid escapes.
+## Collections
 
-Splitting can follow arrays, so it has a useful return type. Formatting and case conversion can follow when we have scripts that need them.
+Add arrays and maps with literals, indexing, array append, and support for collections in `len`. Collections need parameterized types and a decision about missing values.
 
-## Arrays and maps
+One proposal is `array<T>` and `map<K, V>` with an optional type for missing map keys. Arrays would use zero-based indexes and report out-of-range access as an error. Equality, copying, and mutation rules need to be defined before implementation.
 
-Static inference, annotations, checked function signatures, and constants now work. Collections will need parameterized types and a decision about missing values. I'd add `array<T>` and `map<K, V>` together with an optional type before giving missing map keys a `null` result. Syntax needs approval before implementation.
+## Floating-point numbers
 
-Add collection literals, indexing, support for collections in `len`, and array append. I'd use zero-based arrays and report out-of-range indexing as an error. Define equality and copying behavior explicitly.
-
-Keep arrays and maps distinct unless a single collection type has a clear benefit for the programs we want to write.
-
-## Floats and conversions
-
-Add `float64` values and explicit `int` / `float` conversions. Define mixed arithmetic, division, rounding, and non-finite values before implementation. Keep existing integer arithmetic predictable.
+Add `float64` values and explicit integer and floating-point conversions. Define mixed arithmetic, division, rounding, and non-finite values before implementation.
 
 ## Iteration and assignment
 
-Add `for item in values`, conditional loops, `break`, and `continue`. Add `=` to update an existing binding and reject assignment to an unknown name or a constant. Updates must preserve the binding's type.
+Add collection iteration, conditional loops, `break`, and `continue`. Assignment should update an existing binding, preserve its type, and reject unknown names or constants.
 
-Decide how closures capture loop variables. That behavior needs a test before loops ship.
+Closure capture of loop variables needs an explicit rule and tests.
 
-## Modules and a small standard library
+## Modules and standard library
 
-Add imports with defined path resolution and caching, then basic file, path, and JSON functions. Strings and collections should come first so those functions have useful input and return types.
+Add imports with defined path resolution and caching, followed by file, path, and JSON functions. Collections should come first so those functions have useful input and return types.
 
-Alongside these additions, improve error messages with source locations and call traces, and let the REPL accept complete blocks across multiple lines.
+## Diagnostics and REPL
 
-## A later performance milestone
+Add source locations and call traces to error messages. Allow the REPL to accept complete blocks across multiple lines.
 
-Once the new features have representative workloads, compare a bytecode VM with the current AST evaluator. Compact instructions and value storage may reduce dispatch and allocation costs further, but the benchmarks need to establish the benefit.
+## Text utilities
 
-Lua's [runtime description](https://www.lua.org/manual/5.5/manual.html#1) is a reference for a register-based bytecode interpreter. Its benefit in TurtlScript would need a benchmark.
+Add splitting after arrays, then formatting and case conversion as scripts need them. Existing string behavior is in the [language guide](language.md#strings).
+
+## Further performance work
+
+Evaluate constant folding, unboxed function results, and a bytecode interpreter against the current AST evaluator. Representative workloads should establish whether each change improves execution time or allocation costs.
+
+Lua's [runtime description](https://www.lua.org/manual/5.5/manual.html#1) is a reference for a register-based bytecode interpreter. Any benefit in TurtlScript needs a benchmark.

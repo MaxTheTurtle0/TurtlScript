@@ -4,9 +4,9 @@ Measured on October 11, 2026, with Go 1.24.4 on Linux amd64, using an AMD Ryzen 
 
 Each result below is the median of five benchmark samples. Pipeline and function benchmarks used a 200 ms target per sample and one Go execution thread. Benchmarks ran separately from tests and profiling. CLI measurements include process startup and use the same host and toolchain for both binaries.
 
-The pipeline and CLI baseline is the original commit, `c2584c4`. Function benchmarks use the first working implementation from this change, since the original interpreter could parse functions but could not execute them.
+The pipeline and CLI baseline is the original commit, `c2584c4`. Function benchmarks use the first implementation that could execute functions. The original interpreter could parse functions but could not execute them.
 
-These results record the first optimization pass. The later [string measurements](strings-performance.md) include text workloads and a fresh comparison of numeric performance before and after adding strings. The [static typing measurements](types-performance.md) include the checking cost now paid by files and REPL entries. The older pipeline benchmarks below still bypass the checker.
+These results record the core optimization pass before strings and static typing. The [string measurements](strings-performance.md) cover text workloads and numeric performance before and after adding strings. The [static typing measurements](types-performance.md) include the cost of checking files and REPL entries. The pipeline benchmarks below bypass the checker.
 
 ## Results
 
@@ -70,7 +70,9 @@ These are synthetic workloads on one host. New language features need additional
 
 ## Reproduce
 
-Measure the current interpreter:
+The project now uses Go 1.27.2. To run these workloads with the recorded Go 1.24.4 toolchain, use the [historical checkout instructions](development.md#historical-measurements). The commands below use the toolchain selected by the checkout.
+
+Measure the interpreter:
 
 ```sh
 go test ./benchmarks -run '^$' -bench 'BenchmarkPipeline|BenchmarkFunctions' -benchmem -benchtime=200ms -count=5 -cpu=1
