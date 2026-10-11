@@ -182,7 +182,7 @@ diff --git a/checker/checker.go b/checker/checker.go
 new file mode 100644
 --- /dev/null
 +++ b/checker/checker.go
-@@ -0,0 +1,346 @@
+@@ -0,0 +1,365 @@
 +// Package checker infers and checks types before evaluation. Function types are
 +// monomorphic: each function has one signature, rather than implicit generics.
 +package checker
@@ -361,16 +361,6 @@ new file mode 100644
 +		var desired *term
 +		if exists {
 +			desired = previous.typ
-+		} else {
-+			// Runtime closures capture their mutable function environment.
-+			// A later local declaration must preserve types of earlier reads,
-+			// including reads made by a closure captured before that declaration.
-+			for _, prior := range env.outerReads[node.Name.Value] {
-+				if desired == nil {
-+					desired = fresh(allKinds)
-+				}
-+				c.unify(desired, prior, "binding "+node.Name.Value+" shadows an earlier reference")
-+			}
 +		}
 +		if node.Annotation != nil {
 +			annotation := fromType(node.Annotation)
@@ -382,7 +372,8 @@ new file mode 100644
 +		}
 +		var value *term
 +		var normal bool
-+		if fn, ok := node.Value.(*ast.FunctionLiteral); ok {
++		fn, directFunction := node.Value.(*ast.FunctionLiteral)
++		if directFunction {
 +			if desired == nil {
 +				desired = fresh(allKinds)
 +			}
@@ -394,10 +385,38 @@ new file mode 100644
 +			value, normal = c.expression(node.Value, env, ctx)
 +		}
 +		if normal {
++			// An initializer can itself declare this name. Its resulting
++			// binding must survive the outer declaration's type/const checks.
++			// Direct functions only create the recursion placeholder above.
++			if !directFunction {
++				if current, present := env.bindings[node.Name.Value]; present {
++					if current.constant && (!exists || !previous.constant) {
++						c.error("cannot replace constant: %s", node.Name.Value)
++					}
++					if node.Constant && !exists {
++						c.error("cannot redeclare binding as constant: %s", node.Name.Value)
++					}
++					if desired == nil {
++						desired = current.typ
++					} else if root(desired) != root(current.typ) {
++						c.unify(desired, current.typ, "binding "+node.Name.Value+" after initializer")
++					}
++				}
++			}
 +			if desired == nil {
 +				desired = value
 +			} else if root(desired) != root(value) {
 +				c.unify(desired, value, "binding "+node.Name.Value)
++			}
++			if !exists {
++				// Closures capture the mutable environment. Include reads made
++				// while checking the initializer, before its final binding can
++				// change what those closures will find at runtime.
++				for _, prior := range env.outerReads[node.Name.Value] {
++					if root(desired) != root(prior) {
++						c.unify(desired, prior, "binding "+node.Name.Value+" shadows an earlier reference")
++					}
++				}
 +			}
 +			env.bindings[node.Name.Value] = binding{typ: desired, constant: node.Constant, defined: true}
 +		}
@@ -533,7 +552,7 @@ diff --git a/checker/checker_test.go b/checker/checker_test.go
 new file mode 100644
 --- /dev/null
 +++ b/checker/checker_test.go
-@@ -0,0 +1,268 @@
+@@ -0,0 +1,281 @@
 +package checker
 +
 +import (
@@ -562,6 +581,13 @@ new file mode 100644
 +	for _, test := range []struct{ source, want string }{
 +		{`const answer=42; answer`, "42"},
 +		{`const name:string="🐢"; name`, "🐢"},
++		{`let x=if true{let x=1;2};x`, "2"},
++		{`let x:int=if true{let x=1;2};x`, "2"},
++		{`let flag=true;let x=if flag{let x=1;2}else{3};x`, "2"},
++		{`let x=if true{let x=1;let read=fn(){x+1};2};read()`, "3"},
++		{`let x=1;let f=fn(){let x=if true{x+1};x};f()`, "2"},
++		{`let x=1;let make=fn(){fn(){x+1}};let f=fn(){let x=make();x()};f()`, "2"},
++		{`const x=if true{let y=1;y};x`, "1"},
 +		{`let x:int=1; let x=2; x`, "2"},
 +		{`let id=fn(x){x}; id(3)`, "3"},
 +		{`let add=fn(x,y){x+y}; add(1,2)`, "3"},
@@ -628,6 +654,12 @@ new file mode 100644
 +		{`str(fn(){1})`, "incompatible type"},
 +		{`print(1);false && missing`, "identifier not found"},
 +		{`let x=1;let f=fn(){let g=fn(){x+1};let x="a";g()};f()`, "type mismatch"},
++		{`let x=1;let f=fn(){let x=if true{fn(){x+1}};x()};f()`, "type mismatch"},
++		{`let x=1;let f=fn(){let x=fn(){fn(){x+1}}();x()};f()`, "type mismatch"},
++		{`let x=if true{let x=1;let read=fn(){x+1};"a"};read()`, "type mismatch"},
++		{`let x=if true{const x=1;2};x`, "cannot replace constant"},
++		{`const x=if true{let x=1;2};x`, "cannot redeclare binding as constant"},
++		{`let flag=true;let x=if flag{const x=1;2}else{3};x`, "cannot replace constant"},
 +		{`let f=fn(){len("a")};let len=fn(x:int){x};f()`, "type mismatch"},
 +		{`let f=fn(){str("a")};let str=fn(x:int)->string{"x"};f()`, "type mismatch"},
 +	} {
@@ -773,7 +805,7 @@ new file mode 100644
 +}
 +
 +func FuzzCheckAndEvaluate(f *testing.F) {
-+	for _, source := range []string{`const x:int=42;x`, `fn(x:int)->int{x+1}(2)`, `fn(x){x(x)}`, `let x=1;let x="a"`, `let b=true;if b{let x=1};x`, `let f=fn(){len("a")};let len=fn(x:int){x};f()`} {
++	for _, source := range []string{`const x:int=42;x`, `fn(x:int)->int{x+1}(2)`, `fn(x){x(x)}`, `let x=1;let x="a"`, `let b=true;if b{let x=1};x`, `let f=fn(){len("a")};let len=fn(x:int){x};f()`, `let x=1;let f=fn(){let x=if true{fn(){x+1}};x()};f()`, `let x=if true{const x=1;2};x`} {
 +		f.Add(source)
 +	}
 +	f.Fuzz(func(t *testing.T, source string) {
@@ -1520,13 +1552,18 @@ diff --git a/main.go b/main.go
 diff --git a/main_test.go b/main_test.go
 --- a/main_test.go
 +++ b/main_test.go
-@@ -14,6 +14,10 @@
+@@ -14,6 +14,15 @@
  		status                          int
  	}{
  		{"output", "let add=fn(x,y){x+y;}; print(add(2,3));", "5\n", "", 0},
 +		{"typed constants", `const answer:int=42;const twice=fn(n:int)->int{n*2};print(twice(answer));`, "84\n", "", 0},
 +		{"type error has no side effects", `print("before");let x:int="bad";`, "", "Type errors:", 1},
 +		{"constant error has no side effects", `const x=1;print(x);let x=2;`, "", "cannot replace constant", 1},
++		{"initializer closure type error has no side effects", `let x=1;let f=fn(){let x=if true{fn(){x+1}};x()};print("before");f()`, "", "Type errors:", 1},
++		{"initializer call capture error has no side effects", `let x=1;let f=fn(){let x=fn(){fn(){x+1}}();x()};print("before");f()`, "", "Type errors:", 1},
++		{"initializer constant error has no side effects", `print("before");let x=if true{const x=1;2};x`, "", "Type errors:", 1},
++		{"initializer const redeclaration has no side effects", `print("before");const x=if true{let x=1;2};x`, "", "Type errors:", 1},
++		{"initializer binding type error has no side effects", `let x=if true{let x=1;let read=fn(){x+1};"a"};print("before");read()`, "", "Type errors:", 1},
 +		{"unused bad function checked", `print("before");let f=fn(x:int)->int{"bad"};`, "", "Type errors:", 1},
  		{"text output", `print("hello, " + "🐢"); print(len("hé🐢"), byte_len("hé🐢"));`, "hello, 🐢\n3 7\n", "", 0},
  		{"invalid string has no side effects", `print("before"); let text="\q";`, "", "invalid string escape", 1},

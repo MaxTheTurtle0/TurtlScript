@@ -8,12 +8,12 @@ The baseline is the preceding interpreter with strings and runtime type checks, 
 
 | Workload | Before static types | With static types | Time change |
 | --- | ---: | ---: | ---: |
-| Small numeric program, evaluation | 134.8 ns | 135.4 ns | +0.4% |
-| Large numeric program, evaluation | 10.071 us | 10.369 us | +3.0% |
-| Factorial of 16, evaluation | 2.445 us | 2.269 us | -7.2% |
-| Fibonacci of 16, evaluation | 418.896 us | 400.185 us | -4.5% |
-| Small numeric program, complete run | 1.214 us | 3.188 us | +162.6% |
-| Large numeric program, complete run | 80.195 us | 147.999 us | +84.6% |
+| Small numeric program, evaluation | 134.8 ns | 132.3 ns | -1.9% |
+| Large numeric program, evaluation | 10.071 us | 10.300 us | +2.3% |
+| Factorial of 16, evaluation | 2.445 us | 2.218 us | -9.3% |
+| Fibonacci of 16, evaluation | 418.896 us | 398.502 us | -4.9% |
+| Small numeric program, complete run | 1.214 us | 3.238 us | +166.7% |
+| Large numeric program, complete run | 80.195 us | 150.286 us | +87.4% |
 
 Evaluation parses and checks once outside the timer, then executes the same AST in a fresh environment each iteration. The before complete run parses and evaluates; the after complete run parses, checks, and evaluates on every iteration. These exclude reading a file and starting a process.
 
@@ -25,18 +25,18 @@ Runtime allocations are unchanged for all four evaluation workloads: 4 allocatio
 
 | Workload | First implementation | Final | Allocations before / after | Bytes before / after |
 | --- | ---: | ---: | ---: | ---: |
-| Small program, check only | 2.143 us | 1.660 us | 34 / 22 | 2,248 / 1,816 |
-| Large program, check only | 117.529 us | 64.171 us | 2,070 / 20 | 113,576 / 18,408 |
-| Factorial, check only | 2.459 us | 1.953 us | 49 / 36 | 3,272 / 2,864 |
-| Fibonacci, check only | 2.746 us | 2.128 us | 53 / 38 | 3,328 / 2,904 |
-| Annotated constants and function, check only | 1.980 us | 1.488 us | 43 / 27 | 2,504 / 2,024 |
-| Annotated constants and function, evaluation | 360.9 ns | 260.0 ns | 9 / 7 | 720 / 432 |
+| Small program, check only | 2.143 us | 1.637 us | 34 / 22 | 2,248 / 1,816 |
+| Large program, check only | 117.529 us | 64.607 us | 2,070 / 20 | 113,576 / 18,408 |
+| Factorial, check only | 2.459 us | 1.886 us | 49 / 36 | 3,272 / 2,864 |
+| Fibonacci, check only | 2.746 us | 2.116 us | 53 / 38 | 3,328 / 2,904 |
+| Annotated constants and function, check only | 1.980 us | 1.415 us | 43 / 27 | 2,504 / 2,024 |
+| Annotated constants and function, evaluation | 360.9 ns | 260.5 ns | 9 / 7 | 720 / 432 |
 
 Check-only measurements use an already parsed AST and a fresh checker session each iteration. There is no cached check result. The constant workload declares a scale, offset, and function, then calls the function to calculate 42.
 
-The large checker is 45.4% faster than its first working version and uses 99.0% fewer allocations. Its complete run fell from 208.746 us to 147.999 us during this pass. That improvement is relative to the new checker's first version, not to the preceding dynamically typed language.
+The large checker is 45.0% faster than its first working version and uses 99.0% fewer allocations. Its complete run fell from 208.746 us to 150.286 us during this pass. That improvement is relative to the new checker's first version, not to the preceding dynamically typed language.
 
-The constant workload's evaluation is 28.0% faster and allocates 40.0% fewer bytes than the first constant implementation. This comes from storing immutability flags alongside the existing environment entries. Up to four bindings stay inline; larger scopes store the flag in each map entry. Constants do not need a separate map.
+The constant workload's evaluation is 27.8% faster and allocates 40.0% fewer bytes than the first constant implementation. This comes from storing immutability flags alongside the existing environment entries. Up to four bindings stay inline; larger scopes store the flag in each map entry. Constants do not need a separate map.
 
 ## What the type information does
 

@@ -15,6 +15,8 @@ Both `let` and `const` require an initializer. Repeating `let` in the same scope
 
 Declarations belong to the current function scope. Blocks do not introduce a scope. A function may shadow an outer binding, including a constant. Its local binding does not change the outer value.
 
+Declarations made inside an initializer belong to that same scope and must satisfy the outer declaration's type and constant restrictions.
+
 Closures capture the function environment. If an earlier expression or closure already reads an outer name, a later local declaration with that name must preserve the type of that read. The checker also preserves constraints on built-ins used by earlier REPL entries. These rules prevent a later declaration from invalidating an existing closure.
 
 ## Function types and inference

@@ -176,16 +176,6 @@ func (c *check) statement(statement ast.Statement, env *scope, ctx *returns) (*t
 		var desired *term
 		if exists {
 			desired = previous.typ
-		} else {
-			// Runtime closures capture their mutable function environment.
-			// A later local declaration must preserve types of earlier reads,
-			// including reads made by a closure captured before that declaration.
-			for _, prior := range env.outerReads[node.Name.Value] {
-				if desired == nil {
-					desired = fresh(allKinds)
-				}
-				c.unify(desired, prior, "binding "+node.Name.Value+" shadows an earlier reference")
-			}
 		}
 		if node.Annotation != nil {
 			annotation := fromType(node.Annotation)
@@ -197,7 +187,8 @@ func (c *check) statement(statement ast.Statement, env *scope, ctx *returns) (*t
 		}
 		var value *term
 		var normal bool
-		if fn, ok := node.Value.(*ast.FunctionLiteral); ok {
+		fn, directFunction := node.Value.(*ast.FunctionLiteral)
+		if directFunction {
 			if desired == nil {
 				desired = fresh(allKinds)
 			}
@@ -209,10 +200,38 @@ func (c *check) statement(statement ast.Statement, env *scope, ctx *returns) (*t
 			value, normal = c.expression(node.Value, env, ctx)
 		}
 		if normal {
+			// An initializer can itself declare this name. Its resulting
+			// binding must survive the outer declaration's type/const checks.
+			// Direct functions only create the recursion placeholder above.
+			if !directFunction {
+				if current, present := env.bindings[node.Name.Value]; present {
+					if current.constant && (!exists || !previous.constant) {
+						c.error("cannot replace constant: %s", node.Name.Value)
+					}
+					if node.Constant && !exists {
+						c.error("cannot redeclare binding as constant: %s", node.Name.Value)
+					}
+					if desired == nil {
+						desired = current.typ
+					} else if root(desired) != root(current.typ) {
+						c.unify(desired, current.typ, "binding "+node.Name.Value+" after initializer")
+					}
+				}
+			}
 			if desired == nil {
 				desired = value
 			} else if root(desired) != root(value) {
 				c.unify(desired, value, "binding "+node.Name.Value)
+			}
+			if !exists {
+				// Closures capture the mutable environment. Include reads made
+				// while checking the initializer, before its final binding can
+				// change what those closures will find at runtime.
+				for _, prior := range env.outerReads[node.Name.Value] {
+					if root(desired) != root(prior) {
+						c.unify(desired, prior, "binding "+node.Name.Value+" shadows an earlier reference")
+					}
+				}
 			}
 			env.bindings[node.Name.Value] = binding{typ: desired, constant: node.Constant, defined: true}
 		}

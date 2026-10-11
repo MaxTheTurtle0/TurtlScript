@@ -26,6 +26,13 @@ func TestCheckedPrograms(t *testing.T) {
 	for _, test := range []struct{ source, want string }{
 		{`const answer=42; answer`, "42"},
 		{`const name:string="🐢"; name`, "🐢"},
+		{`let x=if true{let x=1;2};x`, "2"},
+		{`let x:int=if true{let x=1;2};x`, "2"},
+		{`let flag=true;let x=if flag{let x=1;2}else{3};x`, "2"},
+		{`let x=if true{let x=1;let read=fn(){x+1};2};read()`, "3"},
+		{`let x=1;let f=fn(){let x=if true{x+1};x};f()`, "2"},
+		{`let x=1;let make=fn(){fn(){x+1}};let f=fn(){let x=make();x()};f()`, "2"},
+		{`const x=if true{let y=1;y};x`, "1"},
 		{`let x:int=1; let x=2; x`, "2"},
 		{`let id=fn(x){x}; id(3)`, "3"},
 		{`let add=fn(x,y){x+y}; add(1,2)`, "3"},
@@ -92,6 +99,12 @@ func TestRejectedPrograms(t *testing.T) {
 		{`str(fn(){1})`, "incompatible type"},
 		{`print(1);false && missing`, "identifier not found"},
 		{`let x=1;let f=fn(){let g=fn(){x+1};let x="a";g()};f()`, "type mismatch"},
+		{`let x=1;let f=fn(){let x=if true{fn(){x+1}};x()};f()`, "type mismatch"},
+		{`let x=1;let f=fn(){let x=fn(){fn(){x+1}}();x()};f()`, "type mismatch"},
+		{`let x=if true{let x=1;let read=fn(){x+1};"a"};read()`, "type mismatch"},
+		{`let x=if true{const x=1;2};x`, "cannot replace constant"},
+		{`const x=if true{let x=1;2};x`, "cannot redeclare binding as constant"},
+		{`let flag=true;let x=if flag{const x=1;2}else{3};x`, "cannot replace constant"},
 		{`let f=fn(){len("a")};let len=fn(x:int){x};f()`, "type mismatch"},
 		{`let f=fn(){str("a")};let str=fn(x:int)->string{"x"};f()`, "type mismatch"},
 	} {
@@ -237,7 +250,7 @@ func TestCheckedIntegerEvaluation(t *testing.T) {
 }
 
 func FuzzCheckAndEvaluate(f *testing.F) {
-	for _, source := range []string{`const x:int=42;x`, `fn(x:int)->int{x+1}(2)`, `fn(x){x(x)}`, `let x=1;let x="a"`, `let b=true;if b{let x=1};x`, `let f=fn(){len("a")};let len=fn(x:int){x};f()`} {
+	for _, source := range []string{`const x:int=42;x`, `fn(x:int)->int{x+1}(2)`, `fn(x){x(x)}`, `let x=1;let x="a"`, `let b=true;if b{let x=1};x`, `let f=fn(){len("a")};let len=fn(x:int){x};f()`, `let x=1;let f=fn(){let x=if true{fn(){x+1}};x()};f()`, `let x=if true{const x=1;2};x`} {
 		f.Add(source)
 	}
 	f.Fuzz(func(t *testing.T, source string) {
