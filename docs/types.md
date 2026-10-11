@@ -1,6 +1,8 @@
 # Types and constants
 
-TurtlScript checks each file before execution. The REPL checks each entry before executing it. Ordinary language programs have fixed binding types and checked function signatures; annotations are optional where inference can resolve a type.
+TurtlScript checks each file before execution and each REPL entry before evaluating it. Bindings keep fixed types, and function arguments and returns must match their inferred or annotated signatures. Annotations are optional when inference can resolve a type.
+
+See the [language guide](language.md) for general syntax, operators, and strings.
 
 ## Declarations
 
@@ -51,7 +53,7 @@ An `if` expression with two continuing branches must produce the same type in bo
 
 The checker still examines unused functions, unreachable statements, and short-circuited operands for invalid operations or unknown names. Runtime evaluation preserves short-circuiting and return behavior.
 
-Truthiness is unchanged: only `false` and `null` are false. Numeric operators require integers, and `+` also accepts two strings. Ordered comparisons accept two integers or two strings. Equality accepts different types and evaluates them as unequal. There are no implicit string or numeric conversions.
+Only `false` and `null` are false in a condition. Numeric operators require integers, and `+` also accepts two strings. Ordered comparisons accept two integers or two strings. Equality accepts different types and evaluates them as unequal. There are no implicit string or numeric conversions.
 
 `len`, `byte_len`, `contains`, and `slice` have fixed signatures. Each direct use of `str` accepts an integer, string, boolean, or `null`; an alias or callback acquires one concrete parameter type. `print` accepts any number of values of any supported type and returns `null`.
 

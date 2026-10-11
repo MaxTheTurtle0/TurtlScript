@@ -34,7 +34,7 @@ Runtime allocations are unchanged for all four evaluation workloads: 4 allocatio
 
 Check-only measurements use an already parsed AST and a fresh checker session each iteration. There is no cached check result. The constant workload declares a scale, offset, and function, then calls the function to calculate 42.
 
-The large checker is 45.0% faster than its first working version and uses 99.0% fewer allocations. Its complete run fell from 208.746 us to 150.286 us during this pass. That improvement is relative to the new checker's first version, not to the preceding dynamically typed language.
+The optimized large checker is 45.0% faster than its first working version and uses 99.0% fewer allocations. Its complete run fell from 208.746 us to 150.286 us. These comparisons use the first checker as their baseline. The execution and complete-run table uses the preceding dynamically typed interpreter as its baseline.
 
 The constant workload's evaluation is 27.8% faster and allocates 40.0% fewer bytes than the first constant implementation. This comes from storing immutability flags alongside the existing environment entries. Up to four bindings stay inline; larger scopes store the flag in each map entry. Constants do not need a separate map.
 
@@ -50,7 +50,9 @@ Further runtime gains will need work such as constant folding, unboxed function 
 
 ## Reproduce
 
-Measure the current checked language pipeline:
+The project now uses Go 1.27.2. To run these workloads with the recorded Go 1.24.4 toolchain, use the [historical checkout instructions](development.md#historical-measurements). The commands below use the toolchain selected by the checkout.
+
+Measure the checked language pipeline:
 
 ```sh
 go test ./benchmarks -run '^$' -bench '^BenchmarkStaticTypes$' -benchmem -benchtime=400ms -count=5 -cpu=1
