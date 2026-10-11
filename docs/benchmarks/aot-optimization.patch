@@ -1,6 +1,14 @@
 --- a/compiler/compiler.go
 +++ b/compiler/compiler.go
-@@ -30,11 +30,12 @@
+@@ -10,6 +10,7 @@
+ 	"go/format"
+ 	"go/interpreter/ast"
+ 	"go/interpreter/checker"
++	"go/interpreter/object"
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
+@@ -30,11 +31,12 @@
  		return nil, fmt.Errorf("Type errors:\n\t%s", strings.Join(errors, "\n\t"))
  	}
  	g := &generator{}
@@ -15,7 +23,7 @@
  	source += strings.Join(g.functions, "\n")
  	source += "\nfunc main() { run(tsProgram) }\n"
  	formatted, err := format.Source([]byte(source))
-@@ -97,6 +98,7 @@
+@@ -97,6 +99,7 @@
  	*generator
  	strings.Builder
  	nextValue int
@@ -23,7 +31,7 @@
  }
  
  func (g *bodyGenerator) line(format string, args ...any) {
-@@ -111,20 +113,35 @@
+@@ -111,20 +114,35 @@
  	return name
  }
  
@@ -64,7 +72,7 @@
  		}
  	}
  	return last
-@@ -133,19 +150,32 @@
+@@ -133,19 +151,32 @@
  func (g *bodyGenerator) expression(expression ast.Expression) string {
  	switch node := expression.(type) {
  	case *ast.IntegerLiteral:
@@ -102,7 +110,7 @@
  		left := g.expression(node.Left)
  		if node.Operator == "&&" || node.Operator == "||" {
  			result := g.temporary("boolean(truth(" + left + "))")
-@@ -163,7 +193,7 @@
+@@ -163,7 +194,7 @@
  		return g.temporary(fmt.Sprintf("infix(%q, %s, %s)", node.Operator, left, right))
  	case *ast.IfExpression:
  		condition := g.expression(node.Condition)
@@ -111,7 +119,7 @@
  		g.line("if truth(%s) {", condition)
  		last := g.block(node.Consequence.Statements)
  		g.line("%s = %s", result, last)
-@@ -177,26 +207,37 @@
+@@ -177,26 +208,33 @@
  	case *ast.FunctionLiteral:
  		name := fmt.Sprintf("tsFunction%d", g.nextFunction)
  		g.nextFunction++
@@ -125,14 +133,15 @@
  		body.line("return %s", last)
 -		g.functions = append(g.functions, "func "+name+"(env *scope) value {\n"+body.String()+"}\n")
 -		parameters := make([]string, len(node.Parameters))
-+		g.functions = append(g.functions, "func "+name+"(parent *scope, output io.Writer, depth int, args arguments) value {\n"+body.String()+"}\n")
- 		display := make([]string, len(node.Parameters))
- 		for i, parameter := range node.Parameters {
+-		display := make([]string, len(node.Parameters))
+-		for i, parameter := range node.Parameters {
 -			parameters[i] = strconv.Quote(parameter.Value)
- 			display[i] = parameter.Value + ": " + node.Signature.Params[i].String()
- 		}
- 		printed := "fn(" + strings.Join(display, ", ") + ") -> " + node.Signature.Result.String() + " { " + node.Body.String() + " }"
+-			display[i] = parameter.Value + ": " + node.Signature.Params[i].String()
+-		}
+-		printed := "fn(" + strings.Join(display, ", ") + ") -> " + node.Signature.Result.String() + " { " + node.Body.String() + " }"
 -		return g.temporary(fmt.Sprintf("value{kind: functionKind, function: &function{parameters: []string{%s}, parent: env, body: %s, display: %q}}", strings.Join(parameters, ","), name, printed))
++		g.functions = append(g.functions, "func "+name+"(parent *scope, output io.Writer, depth int, args arguments) value {\n"+body.String()+"}\n")
++		printed := (&object.Function{Parameters: node.Parameters, Body: node.Body, Signature: node.Signature}).Inspect()
 +		g.functions = append(g.functions, fmt.Sprintf("var %sCode = functionCode{parameters: %d, display: %q, body: %s}\n", name, len(node.Parameters), printed, name))
 +		return g.temporary(fmt.Sprintf("value{kind: functionKind, function: &function{code: &%sCode, parent: env}}", name))
  	case *ast.CallExpression:
@@ -511,6 +520,7 @@
 +import (
 +	"fmt"
 +	"go/interpreter/ast"
++	"go/interpreter/evaluator"
 +)
 +
 +// Enumerate an entire function before lowering it. A later declaration can
@@ -581,8 +591,7 @@
 +		frame += ".parent"
 +	}
 +	fallback := fmt.Sprintf("failure(%q)", "identifier not found: "+name)
-+	switch name {
-+	case "len", "byte_len", "contains", "slice", "str", "print":
++	if _, builtin := evaluator.BuiltinSignature(name); builtin {
 +		fallback = fmt.Sprintf("builtins[%q]", name)
 +	}
 +	if len(reads) == 0 {

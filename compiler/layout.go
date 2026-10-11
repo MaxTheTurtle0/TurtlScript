@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"go/interpreter/ast"
+	"go/interpreter/evaluator"
 )
 
 // Enumerate an entire function before lowering it. A later declaration can
@@ -73,8 +74,7 @@ func (g *bodyGenerator) identifier(name string) string {
 		frame += ".parent"
 	}
 	fallback := fmt.Sprintf("failure(%q)", "identifier not found: "+name)
-	switch name {
-	case "len", "byte_len", "contains", "slice", "str", "print":
+	if _, builtin := evaluator.BuiltinSignature(name); builtin {
 		fallback = fmt.Sprintf("builtins[%q]", name)
 	}
 	if len(reads) == 0 {

@@ -10,6 +10,7 @@ import (
 	"go/format"
 	"go/interpreter/ast"
 	"go/interpreter/checker"
+	"go/interpreter/object"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -215,11 +216,7 @@ func (g *bodyGenerator) expression(expression ast.Expression) string {
 		last := body.block(node.Body.Statements)
 		body.line("return %s", last)
 		g.functions = append(g.functions, "func "+name+"(parent *scope, output io.Writer, depth int, args arguments) value {\n"+body.String()+"}\n")
-		display := make([]string, len(node.Parameters))
-		for i, parameter := range node.Parameters {
-			display[i] = parameter.Value + ": " + node.Signature.Params[i].String()
-		}
-		printed := "fn(" + strings.Join(display, ", ") + ") -> " + node.Signature.Result.String() + " { " + node.Body.String() + " }"
+		printed := (&object.Function{Parameters: node.Parameters, Body: node.Body, Signature: node.Signature}).Inspect()
 		g.functions = append(g.functions, fmt.Sprintf("var %sCode = functionCode{parameters: %d, display: %q, body: %s}\n", name, len(node.Parameters), printed, name))
 		return g.temporary(fmt.Sprintf("value{kind: functionKind, function: &function{code: &%sCode, parent: env}}", name))
 	case *ast.CallExpression:
