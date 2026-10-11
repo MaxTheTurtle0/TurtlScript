@@ -1,0 +1,46 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics
+BenchmarkPipeline/small/lex 665636 385.5 ns/op 171.21 MB/s 64 B/op 16 allocs/op
+BenchmarkPipeline/small/lex 613870 383.3 ns/op 172.19 MB/s 64 B/op 16 allocs/op
+BenchmarkPipeline/small/lex 621332 380.4 ns/op 173.49 MB/s 64 B/op 16 allocs/op
+BenchmarkPipeline/small/lex   628675	       382.4 ns/op	 172.60 MB/s	      64 B/op	      16 allocs/op
+BenchmarkPipeline/small/lex     	  633392	       387.2 ns/op	 170.47 MB/s	      64 B/op	      16 allocs/op
+BenchmarkPipeline/small/parse   	   63788	      3732 ns/op	    4520 B/op	      88 allocs/op
+BenchmarkPipeline/small/parse   	   62904	      3659 ns/op	    4520 B/op	      88 allocs/op
+BenchmarkPipeline/small/parse   	   63470	      3647 ns/op	    4520 B/op	      88 allocs/op
+BenchmarkPipeline/small/parse   	   54367	      3810 ns/op	    4520 B/op	      88 allocs/op
+BenchmarkPipeline/small/parse   	   62926	      3966 ns/op	    4520 B/op	      88 allocs/op
+BenchmarkPipeline/small/eval    	 1000000	       214.2 ns/op	      56 B/op	       7 allocs/op
+BenchmarkPipeline/small/eval    	 1000000	       217.0 ns/op	      56 B/op	       7 allocs/op
+BenchmarkPipeline/small/eval    	 1000000	       206.9 ns/op	      56 B/op	       7 allocs/op
+BenchmarkPipeline/small/eval    	 1000000	       212.3 ns/op	      56 B/op	       7 allocs/op
+BenchmarkPipeline/small/eval    	 1000000	       206.2 ns/op	      56 B/op	       7 allocs/op
+BenchmarkPipeline/small/run     	   59362	      4002 ns/op	    4576 B/op	      95 allocs/op
+BenchmarkPipeline/small/run     	   58351	      4009 ns/op	    4576 B/op	      95 allocs/op
+BenchmarkPipeline/small/run     	   57841	      3993 ns/op	    4576 B/op	      95 allocs/op
+BenchmarkPipeline/small/run     	   58230	      3997 ns/op	    4576 B/op	      95 allocs/op
+BenchmarkPipeline/small/run     	   57878	      4089 ns/op	    4576 B/op	      95 allocs/op
+BenchmarkPipeline/large/lex     	    6236	     44189 ns/op	 203.24 MB/s	    7180 B/op	    1795 allocs/op
+BenchmarkPipeline/large/lex     	    6588	     41744 ns/op	 215.14 MB/s	    7180 B/op	    1795 allocs/op
+BenchmarkPipeline/large/lex     	    6403	     40289 ns/op	 222.91 MB/s	    7180 B/op	    1795 allocs/op
+BenchmarkPipeline/large/lex     	    6560	     42470 ns/op	 211.47 MB/s	    7180 B/op	    1795 allocs/op
+BenchmarkPipeline/large/lex     	    6529	     41675 ns/op	 215.50 MB/s	    7180 B/op	    1795 allocs/op
+BenchmarkPipeline/large/parse   	    1321	    178974 ns/op	  159028 B/op	    4157 allocs/op
+BenchmarkPipeline/large/parse   	    1291	    180691 ns/op	  159028 B/op	    4157 allocs/op
+BenchmarkPipeline/large/parse   	    1298	    182457 ns/op	  159028 B/op	    4157 allocs/op
+BenchmarkPipeline/large/parse   	    1341	    179106 ns/op	  159028 B/op	    4157 allocs/op
+BenchmarkPipeline/large/parse   	    1321	    179193 ns/op	  159028 B/op	    4157 allocs/op
+BenchmarkPipeline/large/eval    	    8818	     30216 ns/op	   12296 B/op	    1537 allocs/op
+BenchmarkPipeline/large/eval    	    8706	     30189 ns/op	   12296 B/op	    1537 allocs/op
+BenchmarkPipeline/large/eval    	    8763	     30093 ns/op	   12296 B/op	    1537 allocs/op
+BenchmarkPipeline/large/eval    	    7526	     30231 ns/op	   12296 B/op	    1537 allocs/op
+BenchmarkPipeline/large/eval    	    8895	     31295 ns/op	   12296 B/op	    1537 allocs/op
+BenchmarkPipeline/large/run     	    1117	    207318 ns/op	  171328 B/op	    5694 allocs/op
+BenchmarkPipeline/large/run     	    1140	    207373 ns/op	  171328 B/op	    5694 allocs/op
+BenchmarkPipeline/large/run     	    1114	    208191 ns/op	  171328 B/op	    5694 allocs/op
+BenchmarkPipeline/large/run     	    1135	    206749 ns/op	  171328 B/op	    5694 allocs/op
+BenchmarkPipeline/large/run     	    1124	    207224 ns/op	  171328 B/op	    5694 allocs/op
+PASS
+ok  	go/interpreter/benchmarks	10.320s

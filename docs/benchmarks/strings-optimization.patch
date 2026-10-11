@@ -1,0 +1,83 @@
+--- a/lexer/lexer.go
++++ b/lexer/lexer.go
+@@ -122,8 +122,6 @@
+ 		tok = newToken(token.LBRACE, l.ch)
+ 	case '}':
+ 		tok = newToken(token.RBRACE, l.ch)
+-	case '"':
+-		return l.readString()
+ 	case 0:
+ 		if l.position >= len(l.input) {
+ 			return token.Token{Type: token.EOF}
+@@ -137,6 +135,9 @@
+ 		if isDigit(l.ch) {
+ 			return token.Token{Type: token.INT, Literal: l.readNumber()}
+ 		}
++		if l.ch == '"' {
++			return l.readString()
++		}
+ 		tok = newToken(token.ILLEGAL, l.ch)
+ 	}
+ 	l.readChar()
+@@ -145,6 +146,7 @@
+ 
+ func (l *Lexer) readString() token.Token {
+ 	start := l.position
++	escaped := false
+ 	l.readChar()
+ 	for l.position < len(l.input) {
+ 		switch l.ch {
+@@ -154,6 +156,9 @@
+ 			if !utf8.ValidString(literal) {
+ 				return token.Token{Type: token.ILLEGAL, Literal: "string is not valid UTF-8"}
+ 			}
++			if !escaped {
++				return token.Token{Type: token.STRING, Literal: literal[1 : len(literal)-1]}
++			}
+ 			value, err := strconv.Unquote(literal)
+ 			if err != nil {
+ 				return token.Token{Type: token.ILLEGAL, Literal: "invalid string escape"}
+@@ -166,6 +171,7 @@
+ 			l.readChar()
+ 			return token.Token{Type: token.ILLEGAL, Literal: "newline in string literal"}
+ 		case '\\':
++			escaped = true
+ 			l.readChar()
+ 			if l.position >= len(l.input) {
+ 				break
+--- a/evaluator/strings.go
++++ b/evaluator/strings.go
+@@ -75,11 +75,29 @@
+ 	if !ok {
+ 		return newError("slice: argument 3 must be INTEGER, got %s", args[2].Type())
+ 	}
+-	runes := []rune(text.Value)
+-	if start.Value < 0 || end.Value < start.Value || end.Value > int64(len(runes)) {
+-		return newError("slice: indexes out of range: start=%d, end=%d, length=%d", start.Value, end.Value, len(runes))
++	if start.Value < 0 || end.Value < start.Value {
++		return newError("slice: indexes out of range: start=%d, end=%d, length=%d", start.Value, end.Value, utf8.RuneCountInString(text.Value))
+ 	}
+-	return &object.String{Value: string(runes[start.Value:end.Value])}
++	// Find the byte boundaries without copying the text into a rune array.
++	// Valid slices only scan as far as the requested end index.
++	startByte := 0
++	var index int64
++	for byteIndex := range text.Value {
++		if index == start.Value {
++			startByte = byteIndex
++		}
++		if index == end.Value {
++			return &object.String{Value: text.Value[startByte:byteIndex]}
++		}
++		index++
++	}
++	if index == start.Value {
++		startByte = len(text.Value)
++	}
++	if index == end.Value {
++		return &object.String{Value: text.Value[startByte:]}
++	}
++	return newError("slice: indexes out of range: start=%d, end=%d, length=%d", start.Value, end.Value, index)
+ }
+ 
+ func builtinStr(_ io.Writer, args ...object.Object) object.Object {

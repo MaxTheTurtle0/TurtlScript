@@ -1,51 +1,88 @@
 package object
 
-import "fmt"
+import (
+	"go/interpreter/ast"
+	"go/interpreter/types"
+	"io"
+	"strconv"
+	"strings"
+)
 
 type ObjectType string
 
 const (
-    INTEGER_OBJ = "INTEGER"
-    BOOLEAN_OBJ = "BOOLEAN"
-    NULL_OBJ = "NULL"
-    RETURN_VALUE_OBJ = "RETURN_VALUE"
-    ERROR_OBJ = "ERROR"
+	INTEGER_OBJ      = "INTEGER"
+	STRING_OBJ       = "STRING"
+	BOOLEAN_OBJ      = "BOOLEAN"
+	NULL_OBJ         = "NULL"
+	RETURN_VALUE_OBJ = "RETURN_VALUE"
+	ERROR_OBJ        = "ERROR"
+	FUNCTION_OBJ     = "FUNCTION"
+	BUILTIN_OBJ      = "BUILTIN"
 )
 
 type Object interface {
-    Type() ObjectType
-    Inspect() string
+	Type() ObjectType
+	Inspect() string
 }
 
-type Error struct {
-    Message string
-}
+type Error struct{ Message string }
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
-func (e *Error) Inspect() string { return "ERROR: " + e.Message }
+func (e *Error) Inspect() string  { return "ERROR: " + e.Message }
 
-type ReturnValue struct {
-    Value Object
-}
+type ReturnValue struct{ Value Object }
 
 func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
-func (rv *ReturnValue) Inspect() string { return rv.Value.Inspect() }
+func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
 
-type Integer struct {
-    Value int64
-}
+type Integer struct{ Value int64 }
 
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
-func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
+func (i *Integer) Inspect() string  { return strconv.FormatInt(i.Value, 10) }
 
-type Boolean struct {
-    Value bool
-}
+type String struct{ Value string }
+
+func (s *String) Type() ObjectType { return STRING_OBJ }
+func (s *String) Inspect() string  { return s.Value }
+
+type Boolean struct{ Value bool }
 
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
-func (b *Boolean) Inspect() string { return fmt.Sprintf("%t", b.Value) }
+func (b *Boolean) Inspect() string  { return strconv.FormatBool(b.Value) }
 
-type Null struct {}
+type Null struct{}
 
 func (n *Null) Type() ObjectType { return NULL_OBJ }
-func (n *Null) Inspect() string { return "null" }
+func (n *Null) Inspect() string  { return "null" }
+
+type Function struct {
+	Parameters []*ast.Identifier
+	Body       *ast.BlockStatement
+	Env        *Environment
+	Signature  *types.Type
+}
+
+func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
+func (f *Function) Inspect() string {
+	parameters := make([]string, len(f.Parameters))
+	for i, parameter := range f.Parameters {
+		parameters[i] = parameter.Value
+		if f.Signature != nil {
+			parameters[i] += ": " + f.Signature.Params[i].String()
+		}
+	}
+	result := ""
+	if f.Signature != nil {
+		result = " -> " + f.Signature.Result.String()
+	}
+	return "fn(" + strings.Join(parameters, ", ") + ")" + result + " { " + f.Body.String() + " }"
+}
+
+type Builtin struct {
+	Fn        func(io.Writer, ...Object) Object
+	Signature *types.Type
+}
+
+func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
+func (b *Builtin) Inspect() string  { return "<built-in function>" }

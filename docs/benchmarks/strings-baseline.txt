@@ -1,0 +1,71 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics
+BenchmarkStringLiterals/ascii         	   12056	     20929 ns/op	 587.23 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/ascii         	   12110	     19524 ns/op	 629.47 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/ascii         	   10000	     21266 ns/op	 577.93 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/ascii         	   10000	     20991 ns/op	 585.49 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/ascii         	   10000	     20997 ns/op	 585.32 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/utf8          	    5178	     44418 ns/op	 299.75 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/utf8          	    5360	     44673 ns/op	 298.03 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/utf8          	    5396	     44830 ns/op	 296.99 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/utf8          	    5383	     44739 ns/op	 297.59 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/utf8          	    5715	     43507 ns/op	 306.02 MB/s	       0 B/op	       0 allocs/op
+BenchmarkStringLiterals/escaped       	    6036	     39597 ns/op	 297.44 MB/s	   24576 B/op	       2 allocs/op
+BenchmarkStringLiterals/escaped       	    6183	     39769 ns/op	 296.16 MB/s	   24576 B/op	       2 allocs/op
+BenchmarkStringLiterals/escaped       	    6066	     41916 ns/op	 280.99 MB/s	   24576 B/op	       2 allocs/op
+BenchmarkStringLiterals/escaped       	    5347	     39529 ns/op	 297.96 MB/s	   24576 B/op	       2 allocs/op
+BenchmarkStringLiterals/escaped       	    5992	     40194 ns/op	 293.03 MB/s	   24576 B/op	       2 allocs/op
+BenchmarkStrings/len_ascii            	   44952	      5514 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_ascii            	   41227	      6215 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_ascii            	   44310	      5381 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_ascii            	   44582	      5380 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_ascii            	   44556	      5386 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_utf8             	   22431	     10697 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_utf8             	   22442	     10783 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_utf8             	   22450	     10696 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_utf8             	   22394	     11138 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/len_utf8             	   22306	     10792 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/byte_len_utf8        	 4090461	        58.47 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/byte_len_utf8        	 4102586	        56.82 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/byte_len_utf8        	 4149955	        60.69 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/byte_len_utf8        	 4063015	        58.04 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/byte_len_utf8        	 4066347	        57.70 ns/op	      24 B/op	       2 allocs/op
+BenchmarkStrings/slice_ascii_prefix   	   17644	     13564 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_prefix   	   17713	     13845 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_prefix   	   17928	     13375 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_prefix   	   18157	     11381 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_prefix   	   22464	     12131 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_middle   	   17876	     13307 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_middle   	   18026	     13287 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_middle   	   17838	     13314 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_middle   	   18040	     13313 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_ascii_middle   	   18070	     13308 ns/op	   49248 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_prefix    	    8998	     23906 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_prefix    	    8600	     23690 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_prefix    	    9196	     23683 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_prefix    	    9042	     23837 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_prefix    	    9144	     23930 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_middle    	    8762	     23735 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_middle    	    9014	     24219 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_middle    	    9051	     23710 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_middle    	    9093	     23931 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_middle    	    9176	     23802 ns/op	   20576 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_full      	    5115	     47024 ns/op	   34128 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_full      	    4459	     46928 ns/op	   34128 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_full      	    4442	     47083 ns/op	   34128 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_full      	    4276	     46904 ns/op	   34128 B/op	       6 allocs/op
+BenchmarkStrings/slice_utf8_full      	    4215	     47869 ns/op	   34128 B/op	       6 allocs/op
+BenchmarkStrings/contains_utf8        	 2952104	        78.59 ns/op	      48 B/op	       2 allocs/op
+BenchmarkStrings/contains_utf8        	 2969359	        79.21 ns/op	      48 B/op	       2 allocs/op
+BenchmarkStrings/contains_utf8        	 2983507	        84.51 ns/op	      48 B/op	       2 allocs/op
+BenchmarkStrings/contains_utf8        	 2975730	        78.90 ns/op	      48 B/op	       2 allocs/op
+BenchmarkStrings/contains_utf8        	 2933785	        79.28 ns/op	      48 B/op	       2 allocs/op
+BenchmarkStrings/concat               	 2784780	        85.51 ns/op	      64 B/op	       4 allocs/op
+BenchmarkStrings/concat               	 2795000	        84.85 ns/op	      64 B/op	       4 allocs/op
+BenchmarkStrings/concat               	 2782065	        85.59 ns/op	      64 B/op	       4 allocs/op
+BenchmarkStrings/concat               	 2730825	        85.62 ns/op	      64 B/op	       4 allocs/op
+BenchmarkStrings/concat               	 2759696	        84.07 ns/op	      64 B/op	       4 allocs/op
+PASS
+ok  	go/interpreter/benchmarks	19.150s

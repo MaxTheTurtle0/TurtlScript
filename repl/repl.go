@@ -3,6 +3,7 @@ package repl
 import (
 	"bufio"
 	"fmt"
+	"go/interpreter/checker"
 	"go/interpreter/evaluator"
 	"go/interpreter/lexer"
 	"go/interpreter/object"
@@ -12,34 +13,40 @@ import (
 
 const PROMPT = ">> "
 
-func Start(in io.Reader, out io.Writer) {
-    scanner := bufio.NewScanner(in)
-    env := object.NewEnvironment()
-    
-    for {
-        fmt.Printf(PROMPT) 
-        scanned := scanner.Scan()
-        if !scanned {
-            return
-        }
-
-        line := scanner.Text()
-
-        if line == ".quit" {
-            return
-        } 
-
-        l := lexer.New(line)
-        p := parser.New(l)
-        program := p.ParseProgram()
-        if len(p.Errors()) != 0 {
-            p.PrintParserErrors(out) 
-        }
-       
-        evaluated := evaluator.Eval(program, env)
-        if evaluated != nil {
-            io.WriteString(out, evaluated.Inspect())
-            io.WriteString(out, "\n")
-        }
-    }
+func Start(in io.Reader, out io.Writer) error {
+	scanner := bufio.NewScanner(in)
+	scanner.Buffer(make([]byte, 4096), 1024*1024)
+	env := object.NewEnvironment()
+	env.Output = out
+	types := checker.NewSession()
+	for {
+		if _, err := io.WriteString(out, PROMPT); err != nil {
+			return err
+		}
+		if !scanner.Scan() {
+			return scanner.Err()
+		}
+		line := scanner.Text()
+		if line == ".quit" {
+			return nil
+		}
+		p := parser.New(lexer.New(line))
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			p.PrintParserErrors(out)
+			continue
+		}
+		checked, errors := types.Check(program)
+		if len(errors) != 0 {
+			checker.PrintErrors(out, errors)
+			continue
+		}
+		result := evaluator.Eval(program, env)
+		types.Commit(checked, env)
+		if result.Type() != object.NULL_OBJ {
+			if _, err := fmt.Fprintln(out, result.Inspect()); err != nil {
+				return err
+			}
+		}
+	}
 }

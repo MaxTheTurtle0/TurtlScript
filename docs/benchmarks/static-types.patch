@@ -1,0 +1,2126 @@
+diff --git a/ast/ast.go b/ast/ast.go
+--- a/ast/ast.go
++++ b/ast/ast.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"bytes"
+ 	"go/interpreter/token"
++	"go/interpreter/types"
+ 	"strconv"
+ 	"strings"
+ )
+@@ -72,6 +73,8 @@
+ 	Token      token.Token // the 'fn' token
+ 	Parameters []*Identifier
+ 	Body       *BlockStatement
++	ReturnType *types.Type
++	Signature  *types.Type // Filled only after successful static checking.
+ }
+ 
+ func (fl *FunctionLiteral) expressionNode()      {}
+@@ -82,13 +85,20 @@
+ 	params := []string{}
+ 
+ 	for _, p := range fl.Parameters {
+-		params = append(params, p.String())
++		param := p.String()
++		if p.Annotation != nil {
++			param += ": " + p.Annotation.String()
++		}
++		params = append(params, param)
+ 	}
+ 
+ 	out.WriteString(fl.TokenLiteral())
+ 	out.WriteString("(")
+ 	out.WriteString(strings.Join(params, ", "))
+ 	out.WriteString(")")
++	if fl.ReturnType != nil {
++		out.WriteString(" -> " + fl.ReturnType.String())
++	}
+ 	out.WriteString(fl.Body.String())
+ 
+ 	return out.String()
+@@ -137,10 +147,11 @@
+ }
+ 
+ type InfixExpression struct {
+-	Token    token.Token // the operator token, e.g. -
+-	Left     Expression
+-	Operator string
+-	Right    Expression
++	Token           token.Token // the operator token, e.g. -
++	Left            Expression
++	Operator        string
++	Right           Expression
++	IntegerOperands bool // Proven by successful static checking.
+ }
+ 
+ func (oe *InfixExpression) expressionNode()      {}
+@@ -158,9 +169,10 @@
+ }
+ 
+ type PrefixExpression struct {
+-	Token    token.Token
+-	Operator string
+-	Right    Expression
++	Token          token.Token
++	Operator       string
++	Right          Expression
++	IntegerOperand bool // Proven by successful static checking.
+ }
+ 
+ func (pe *PrefixExpression) expressionNode()      {}
+@@ -212,9 +224,11 @@
+ }
+ 
+ type LetStatement struct {
+-	Token token.Token
+-	Name  *Identifier
+-	Value Expression
++	Token      token.Token
++	Name       *Identifier
++	Value      Expression
++	Annotation *types.Type
++	Constant   bool
+ }
+ 
+ func (ls *LetStatement) statementNode()       {}
+@@ -224,6 +238,9 @@
+ 
+ 	out.WriteString(ls.TokenLiteral() + " ")
+ 	out.WriteString(ls.Name.String())
++	if ls.Annotation != nil {
++		out.WriteString(": " + ls.Annotation.String())
++	}
+ 	out.WriteString(" = ")
+ 
+ 	if ls.Value != nil {
+@@ -236,8 +253,9 @@
+ }
+ 
+ type Identifier struct {
+-	Token token.Token
+-	Value string
++	Token      token.Token
++	Value      string
++	Annotation *types.Type
+ }
+ 
+ func (i *Identifier) expressionNode()      {}
+diff --git a/benchmarks/types_test.go b/benchmarks/types_test.go
+new file mode 100644
+--- /dev/null
++++ b/benchmarks/types_test.go
+@@ -0,0 +1,66 @@
++package benchmarks
++
++import (
++	"go/interpreter/ast"
++	"go/interpreter/checker"
++	"go/interpreter/evaluator"
++	"go/interpreter/lexer"
++	"go/interpreter/object"
++	"go/interpreter/parser"
++	"strings"
++	"testing"
++)
++
++var checkedSink *checker.Result
++
++func BenchmarkStaticTypes(b *testing.B) {
++	for _, workload := range []struct {
++		name, source string
++		want         int64
++	}{
++		{"small", "let a = 12; let b = 8; if a >= b { (a + b) * 3 ** 2; } else { 0; }", 180},
++		{"large", "let total = 0;\n" + strings.Repeat("let total = total + (17 * 3) % 13;\n", 256) + "total;", 3072},
++		{"factorial", "let fact=fn(n){if n<=1 {return 1;} n*fact(n-1);}; fact(16);", 20922789888000},
++		{"fibonacci", "let fib=fn(n){if n<2 {return n;} fib(n-1)+fib(n-2);}; fib(16);", 987},
++		{"constants", "const scale:int=6; const offset:int=2; const apply=fn(x:int)->int{(x+offset)*scale};apply(5);", 42},
++	} {
++		b.Run(workload.name, func(b *testing.B) {
++			parse := func() *ast.Program {
++				p := parser.New(lexer.New(workload.source))
++				program := p.ParseProgram()
++				if len(p.Errors()) != 0 {
++					b.Fatal(p.Errors())
++				}
++				return program
++			}
++			program := parse()
++			if _, errors := checker.NewSession().Check(program); len(errors) != 0 {
++				b.Fatal(errors)
++			}
++			value := evaluator.Eval(program, object.NewEnvironment())
++			if value, ok := value.(*object.Integer); !ok || value.Value != workload.want {
++				b.Fatal(value)
++			}
++			b.Run("check", func(b *testing.B) {
++				b.ReportAllocs()
++				for i := 0; i < b.N; i++ {
++					checkedSink, _ = checker.NewSession().Check(program)
++				}
++			})
++			b.Run("eval", func(b *testing.B) {
++				b.ReportAllocs()
++				for i := 0; i < b.N; i++ {
++					objectSink = evaluator.Eval(program, object.NewEnvironment())
++				}
++			})
++			b.Run("run", func(b *testing.B) {
++				b.ReportAllocs()
++				for i := 0; i < b.N; i++ {
++					program := parse()
++					checkedSink, _ = checker.NewSession().Check(program)
++					objectSink = evaluator.Eval(program, object.NewEnvironment())
++				}
++			})
++		})
++	}
++}
+diff --git a/checker/checker.go b/checker/checker.go
+new file mode 100644
+--- /dev/null
++++ b/checker/checker.go
+@@ -0,0 +1,346 @@
++// Package checker infers and checks types before evaluation. Function types are
++// monomorphic: each function has one signature, rather than implicit generics.
++package checker
++
++import (
++	"fmt"
++	"go/interpreter/ast"
++	"go/interpreter/evaluator"
++	"go/interpreter/object"
++	"go/interpreter/types"
++	"io"
++)
++
++type Binding struct {
++	Type     *types.Type
++	Constant bool
++}
++
++// Session holds only fully resolved, immutable types from executed REPL entries.
++type Session struct {
++	bindings     map[string]Binding
++	builtinReads map[string]map[string]*types.Type
++}
++
++func NewSession() *Session {
++	return &Session{bindings: make(map[string]Binding), builtinReads: make(map[string]map[string]*types.Type)}
++}
++
++type Result struct {
++	Program      *ast.Program
++	bindings     map[string]Binding
++	builtinReads map[string]map[string]*types.Type
++}
++
++// Check does not mutate session state. Failed entries cannot constrain types in
++// later entries. Commit records bindings that actually exist after evaluation.
++func (s *Session) Check(program *ast.Program) (*Result, []string) {
++	env := newScope(nil)
++	loaded := make(map[*types.Type]*term)
++	for name, b := range s.bindings {
++		env.bindings[name] = binding{typ: fromTypeMemo(b.Type, loaded), constant: b.Constant, defined: true}
++	}
++	for name, signatures := range s.builtinReads {
++		for _, typ := range signatures {
++			env.recordRead(name, fromType(typ))
++		}
++	}
++	c := &check{}
++	ctx := &returns{typ: fresh(allKinds)}
++	last, normal := c.block(program.Statements, env, ctx)
++	if ctx.used && normal {
++		c.unify(ctx.typ, last, "program return")
++	}
++	resolved := make(map[string]Binding, len(env.bindings))
++	frozen := make(map[*term]*types.Type)
++	for name, b := range env.bindings {
++		typ := freezeMemo(b.typ, frozen)
++		if typ == nil {
++			c.error("cannot infer type of binding %s; add an annotation", name)
++		} else {
++			resolved[name] = Binding{Type: typ, Constant: b.constant}
++		}
++	}
++	for _, f := range c.functions {
++		if freezeMemo(f.typ, frozen) == nil {
++			c.error("cannot infer complete function signature; annotate its parameters or return type")
++		}
++	}
++	if len(c.errors) != 0 {
++		return nil, c.errors
++	}
++	for _, f := range c.functions {
++		f.node.Signature = freezeMemo(f.typ, frozen)
++	}
++	for _, op := range c.operators {
++		op.node.IntegerOperands = root(op.left).kind == types.IntKind && root(op.right).kind == types.IntKind
++	}
++	for _, op := range c.integerOperators {
++		op.IntegerOperands = true
++	}
++	for _, prefix := range c.prefixes {
++		prefix.IntegerOperand = true
++	}
++	reads := make(map[string]map[string]*types.Type)
++	for name, signatures := range env.outerReads {
++		if _, builtin := evaluator.BuiltinSignature(name); !builtin {
++			continue
++		}
++		reads[name] = make(map[string]*types.Type)
++		for _, signature := range signatures {
++			typ := freezeConstraint(signature)
++			reads[name][typ.String()] = typ
++		}
++	}
++	return &Result{Program: program, bindings: resolved, builtinReads: reads}, nil
++}
++
++func (s *Session) Commit(result *Result, env *object.Environment) {
++	s.builtinReads = result.builtinReads
++	for name, b := range result.bindings {
++		if _, ok := env.Get(name); ok {
++			s.bindings[name] = b
++		}
++	}
++}
++
++func PrintErrors(out io.Writer, errors []string) {
++	fmt.Fprintln(out, "Type errors:")
++	for _, err := range errors {
++		fmt.Fprintln(out, "\t"+err)
++	}
++}
++
++type function struct {
++	node *ast.FunctionLiteral
++	typ  *term
++}
++
++type check struct {
++	errors           []string
++	functions        []function
++	depth            int
++	operators        []integerOperator
++	integerOperators []*ast.InfixExpression
++	prefixes         []*ast.PrefixExpression
++}
++
++type integerOperator struct {
++	node        *ast.InfixExpression
++	left, right *term
++}
++
++type returns struct {
++	typ  *term
++	used bool
++}
++
++func (c *check) error(format string, args ...any) {
++	if len(c.errors) < 100 {
++		c.errors = append(c.errors, fmt.Sprintf(format, args...))
++	}
++}
++
++// normal reports whether an expression can complete without returning.
++func (c *check) block(statements []ast.Statement, env *scope, ctx *returns) (*term, bool) {
++	last := nullTerm
++	normal := true
++	for _, statement := range statements {
++		typ, continues := c.statement(statement, env, ctx)
++		if normal {
++			last, normal = typ, continues
++		}
++	}
++	return last, normal
++}
++
++func (c *check) statement(statement ast.Statement, env *scope, ctx *returns) (*term, bool) {
++	switch node := statement.(type) {
++	case *ast.ExpressionStatement:
++		return c.expression(node.Expression, env, ctx)
++	case *ast.ReturnStatement:
++		typ, normal := c.expression(node.ReturnValue, env, ctx)
++		if normal {
++			ctx.used = true
++			c.unify(ctx.typ, typ, "return value")
++		}
++		return nullTerm, false
++	case *ast.LetStatement:
++		previous, exists := env.bindings[node.Name.Value]
++		if exists && previous.constant {
++			c.error("cannot replace constant: %s", node.Name.Value)
++		}
++		if exists && node.Constant {
++			c.error("cannot redeclare binding as constant: %s", node.Name.Value)
++		}
++		var desired *term
++		if exists {
++			desired = previous.typ
++		} else {
++			// Runtime closures capture their mutable function environment.
++			// A later local declaration must preserve types of earlier reads,
++			// including reads made by a closure captured before that declaration.
++			for _, prior := range env.outerReads[node.Name.Value] {
++				if desired == nil {
++					desired = fresh(allKinds)
++				}
++				c.unify(desired, prior, "binding "+node.Name.Value+" shadows an earlier reference")
++			}
++		}
++		if node.Annotation != nil {
++			annotation := fromType(node.Annotation)
++			if desired == nil {
++				desired = annotation
++			} else {
++				c.unify(desired, annotation, "annotation for "+node.Name.Value)
++			}
++		}
++		var value *term
++		var normal bool
++		if fn, ok := node.Value.(*ast.FunctionLiteral); ok {
++			if desired == nil {
++				desired = fresh(allKinds)
++			}
++			// The initializer only creates a closure, so recursive references
++			// are safe to check against its signature before checking the body.
++			env.bindings[node.Name.Value] = binding{typ: desired, constant: node.Constant, defined: true}
++			value, normal = c.function(fn, env, desired)
++		} else {
++			value, normal = c.expression(node.Value, env, ctx)
++		}
++		if normal {
++			if desired == nil {
++				desired = value
++			} else if root(desired) != root(value) {
++				c.unify(desired, value, "binding "+node.Name.Value)
++			}
++			env.bindings[node.Name.Value] = binding{typ: desired, constant: node.Constant, defined: true}
++		}
++		return nullTerm, normal
++	default:
++		c.error("invalid statement")
++		return nullTerm, true
++	}
++}
++
++func (c *check) function(node *ast.FunctionLiteral, env *scope, expected *term) (*term, bool) {
++	params := make([]*term, len(node.Parameters))
++	local := newScope(env)
++	for i, parameter := range node.Parameters {
++		params[i] = fresh(allKinds)
++		if parameter.Annotation != nil {
++			params[i] = fromType(parameter.Annotation)
++		}
++		local.bindings[parameter.Value] = binding{typ: params[i], defined: true}
++	}
++	result := fresh(allKinds)
++	if node.ReturnType != nil {
++		result = fromType(node.ReturnType)
++	}
++	typ := &term{kind: types.FunctionKind, params: params, result: result}
++	if expected != nil {
++		c.unify(expected, typ, "function declaration")
++	}
++	c.functions = append(c.functions, function{node: node, typ: typ})
++	ctx := &returns{typ: result}
++	last, normal := c.block(node.Body.Statements, local, ctx)
++	if normal {
++		c.unify(result, last, "implicit function return")
++	}
++	return typ, true
++}
++
++func (c *check) expression(expression ast.Expression, env *scope, ctx *returns) (*term, bool) {
++	if c.depth >= 512 {
++		c.error("maximum type checking depth exceeded")
++		return nullTerm, true
++	}
++	c.depth++
++	defer func() { c.depth-- }()
++	switch node := expression.(type) {
++	case *ast.IntegerLiteral:
++		return intTerm, true
++	case *ast.StringLiteral:
++		return stringTerm, true
++	case *ast.Boolean:
++		return boolTerm, true
++	case *ast.NullLiteral:
++		return nullTerm, true
++	case *ast.Identifier:
++		if b, ok := env.lookup(node.Value); ok {
++			if !b.defined {
++				c.error("binding %s may not be initialized on every path", node.Value)
++			}
++			return b.typ, true
++		}
++		if signature, ok := evaluator.BuiltinSignature(node.Value); ok {
++			typ := fromType(signature)
++			for current := env; current != nil; current = current.outer {
++				current.recordRead(node.Value, typ)
++			}
++			return typ, true
++		}
++		c.error("identifier not found: %s", node.Value)
++		return fresh(allKinds), true
++	case *ast.FunctionLiteral:
++		return c.function(node, env, nil)
++	case *ast.PrefixExpression:
++		node.IntegerOperand = false
++		right, normal := c.expression(node.Right, env, ctx)
++		if node.Operator == "!" {
++			return boolTerm, normal
++		}
++		if normal {
++			c.unify(right, intTerm, "operator "+node.Operator)
++			c.prefixes = append(c.prefixes, node)
++		}
++		return intTerm, normal
++	case *ast.InfixExpression:
++		return c.infix(node, env, ctx)
++	case *ast.IfExpression:
++		return c.conditional(node, env, ctx)
++	case *ast.CallExpression:
++		callee, functionNormal := c.expression(node.Function, env, ctx)
++		normal := functionNormal
++		args := make([]*term, len(node.Arguments))
++		for i, arg := range node.Arguments {
++			typ, continues := c.expression(arg, env, ctx)
++			if continues {
++				args[i] = typ
++			} else {
++				// A returning argument supplies no value, but runtime dispatch
++				// still checks callability and arity before evaluating it.
++				args[i] = fresh(allKinds)
++			}
++			normal = normal && continues
++		}
++		if !functionNormal {
++			return nullTerm, false
++		}
++		callee = root(callee)
++		if callee.kind == variableKind {
++			result := fresh(allKinds)
++			c.unify(callee, &term{kind: types.FunctionKind, params: args, result: result}, "function call")
++			return result, normal
++		}
++		if callee.kind != types.FunctionKind {
++			c.error("not a function: %s", describe(callee))
++			return fresh(allKinds), normal
++		}
++		if !callee.variadic && len(args) != len(callee.params) {
++			c.error("wrong number of arguments: got=%d, want=%d", len(args), len(callee.params))
++			return callee.result, normal
++		}
++		if !callee.variadic {
++			for i, arg := range args {
++				if root(callee.params[i]) != root(arg) {
++					c.unify(callee.params[i], arg, fmt.Sprintf("argument %d", i+1))
++				}
++			}
++		}
++		return callee.result, normal
++	default:
++		c.error("invalid expression")
++		return nullTerm, true
++	}
++}
+diff --git a/checker/checker_test.go b/checker/checker_test.go
+new file mode 100644
+--- /dev/null
++++ b/checker/checker_test.go
+@@ -0,0 +1,268 @@
++package checker
++
++import (
++	"bytes"
++	"fmt"
++	"go/interpreter/ast"
++	"go/interpreter/evaluator"
++	"go/interpreter/lexer"
++	"go/interpreter/object"
++	"go/interpreter/parser"
++	"strings"
++	"testing"
++)
++
++func parse(t *testing.T, source string) *ast.Program {
++	t.Helper()
++	p := parser.New(lexer.New(source))
++	program := p.ParseProgram()
++	if len(p.Errors()) != 0 {
++		t.Fatal(p.Errors())
++	}
++	return program
++}
++
++func TestCheckedPrograms(t *testing.T) {
++	for _, test := range []struct{ source, want string }{
++		{`const answer=42; answer`, "42"},
++		{`const name:string="🐢"; name`, "🐢"},
++		{`let x:int=1; let x=2; x`, "2"},
++		{`let id=fn(x){x}; id(3)`, "3"},
++		{`let add=fn(x,y){x+y}; add(1,2)`, "3"},
++		{`let add=fn(x:string,y:string){x+y}; add("a","b")`, "ab"},
++		{`let double=fn(x:int){x*2}; double(21)`, "42"},
++		{`let op:fn(int,int)->int=fn(x,y){x+y}; op(1,2)`, "3"},
++		{`let apply=fn(f:fn(int)->int,x:int)->int{f(x)}; apply(fn(x){x+1},41)`, "42"},
++		{`let make=fn(x){fn(y){x+y}}; let add=make(5); add(3)`, "8"},
++		{`const fact=fn(n){if n<=1{return 1};n*fact(n-1)}; fact(10)`, "3628800"},
++		{`const fact=fn(n:int)->int{if n<=1{return 1};n*fact(n-1)}; fact(10)`, "3628800"},
++		{`let x=7; let f=fn(){const x:string="a";x}; f()`, "a"},
++		{`let b=true; if b {let x=1} else {let x=2}; x`, "1"},
++		{`fn(flag:bool)->int {if flag{return 1};let x=2;x}(false)`, "2"},
++		{`fn(){1 + if true{return 5};99}()`, "5"},
++		{`fn(){slice(if true{return "done"},0,1);"no"}()`, "done"},
++		{`fn(f:fn(string)->int)->int{f(if true{return 5});9}(fn(x:string)->int{1})`, "5"},
++		{`let x=if true{42};x`, "42"},
++		{`fn()->null{}()`, "null"},
++		{`"1" == 1`, "false"},
++		{`str(1)+str(true)+str(null)`, "1truenull"},
++		{`let convert:fn(int)->string=str;convert(42)`, "42"},
++		{`let apply=fn(f:fn(int)->string){f(42)};apply(str)`, "42"},
++		{`let p=print;p(1,"hello",true)`, "null"},
++		{`false && (1/0)`, "false"},
++	} {
++		t.Run(test.source, func(t *testing.T) {
++			program := parse(t, test.source)
++			if _, errors := NewSession().Check(program); len(errors) != 0 {
++				t.Fatal(errors)
++			}
++			value := evaluator.Eval(program, object.NewEnvironment())
++			if value.Inspect() != test.want {
++				t.Fatalf("got %q, want %q", value.Inspect(), test.want)
++			}
++		})
++	}
++}
++
++func TestRejectedPrograms(t *testing.T) {
++	for _, test := range []struct{ source, message string }{
++		{`let x:int="a"`, "type mismatch"},
++		{`let x=1;let x="a"`, "type mismatch"},
++		{`const x=1;let x=2`, "cannot replace constant"},
++		{`const x=1;const x=2`, "cannot replace constant"},
++		{`let x=1;const x=2`, "cannot redeclare binding as constant"},
++		{`fn(x:int)->int{x}(true)`, "type mismatch"},
++		{`fn(x:int)->int{x}()`, "wrong number of arguments"},
++		{`fn(){fn()->int{1}(if true{return 5})}()`, "wrong number of arguments"},
++		{`fn(){42(if true{return 5})}()`, "not a function"},
++		{`fn()->int{"a"}`, "implicit function return"},
++		{`fn()->int{return true}`, "return value"},
++		{`fn(b:bool){if b{return 1};"a"}(true)`, "type mismatch"},
++		{`fn(b:bool){if b{1}else{"a"}}(true)`, "if expression branches"},
++		{`fn(b:bool){if b{1}}(true)`, "if expression branches"},
++		{`let b=true;if b{let x=1};x`, "may not be initialized"},
++		{`let b=true;if b{const x=1};let x=2`, "cannot replace constant"},
++		{`let b=true;if b{let x=1}else{let x="a"};x`, "across branches"},
++		{`let b=true;if b{let x=1}else{const x=1};x`, "consistently let or const"},
++		{`let add=fn(x,y){x+y}`, "cannot infer"},
++		{`let id=fn(x){x};id(1);id("a")`, "type mismatch"},
++		{`fn(x){x(x)}`, "infinite recursive type"},
++		{`let f=fn(){f()};f()`, "cannot infer"},
++		{`len(42)`, "type mismatch"},
++		{`str(fn(){1})`, "incompatible type"},
++		{`print(1);false && missing`, "identifier not found"},
++		{`let x=1;let f=fn(){let g=fn(){x+1};let x="a";g()};f()`, "type mismatch"},
++		{`let f=fn(){len("a")};let len=fn(x:int){x};f()`, "type mismatch"},
++		{`let f=fn(){str("a")};let str=fn(x:int)->string{"x"};f()`, "type mismatch"},
++	} {
++		t.Run(test.source, func(t *testing.T) {
++			if result, errors := NewSession().Check(parse(t, test.source)); result != nil || !strings.Contains(strings.Join(errors, "\n"), test.message) {
++				t.Fatalf("got %v, want %q", errors, test.message)
++			}
++		})
++	}
++}
++
++func TestInferredSignatures(t *testing.T) {
++	program := parse(t, `let make=fn(x){fn(y){x+y}};let add=make(5);add(3)`)
++	if _, errors := NewSession().Check(program); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	fn := program.Statements[0].(*ast.LetStatement).Value.(*ast.FunctionLiteral)
++	if fn.Signature.String() != "fn(int) -> fn(int) -> int" {
++		t.Fatal(fn.Signature.String())
++	}
++}
++
++func TestSessionCommitAndFailures(t *testing.T) {
++	session := NewSession()
++	env := object.NewEnvironment()
++	run := func(source string) []string {
++		result, errors := session.Check(parse(t, source))
++		if len(errors) == 0 {
++			evaluator.Eval(result.Program, env)
++			session.Commit(result, env)
++		}
++		return errors
++	}
++	if errors := run(`const cap=10;let x=1`); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	if errors := run(`let x="bad";let poison=2`); len(errors) == 0 {
++		t.Fatal("accepted a type change")
++	}
++	if errors := run(`x+2`); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	if errors := run(`poison`); len(errors) == 0 {
++		t.Fatal("failed entry committed a binding")
++	}
++	if errors := run(`let cap=20`); len(errors) == 0 {
++		t.Fatal("replaced a constant")
++	}
++	if errors := run(`let saved=3;1/0;let missing=4`); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	if errors := run(`saved`); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	if errors := run(`missing`); len(errors) == 0 {
++		t.Fatal("runtime failure committed an unexecuted declaration")
++	}
++	var out bytes.Buffer
++	PrintErrors(&out, []string{"bad type"})
++	if out.String() != "Type errors:\n\tbad type\n" {
++		t.Fatal(out.String())
++	}
++}
++
++func TestBuiltinClosureConstraintsSurviveREPLEntries(t *testing.T) {
++	session := NewSession()
++	env := object.NewEnvironment()
++	first, errors := session.Check(parse(t, `let f=fn(){len("abc")};let convert=fn(){str(42)}`))
++	if len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	evaluator.Eval(first.Program, env)
++	session.Commit(first, env)
++	for _, source := range []string{`let len=fn(x:int)->int{x}`, `let str=fn(x:string)->string{x}`} {
++		if _, errors := session.Check(parse(t, source)); len(errors) == 0 {
++			t.Fatalf("accepted incompatible built-in replacement: %s", source)
++		}
++	}
++	entry, errors := session.Check(parse(t, `f()`))
++	if len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	if value := evaluator.Eval(entry.Program, env); value.Inspect() != "3" {
++		t.Fatal(value.Inspect())
++	}
++}
++
++func TestSharedHigherOrderTypes(t *testing.T) {
++	// Each identity function duplicates the previous signature in its input
++	// and output. The graph grows linearly, while an expanded tree grows as 2^n.
++	var source strings.Builder
++	source.WriteString(`let f0=fn(x:int)->int{x};`)
++	for i := 1; i <= 80; i++ {
++		fmt.Fprintf(&source, "let f%d=fn(x){x};f%d(f%d);", i, i, i-1)
++	}
++	session := NewSession()
++	entry, errors := session.Check(parse(t, source.String()))
++	if len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	env := object.NewEnvironment()
++	evaluator.Eval(entry.Program, env)
++	session.Commit(entry, env)
++	if _, errors := session.Check(parse(t, `f80(f79)`)); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	if _, errors := session.Check(parse(t, `let f80=fn(x:int)->int{x}`)); len(errors) == 0 || len(strings.Join(errors, "\n")) > 10000 {
++		t.Fatalf("unbounded or missing type diagnostic: %v", errors)
++	}
++}
++
++func TestCheckedIntegerEvaluation(t *testing.T) {
++	for _, test := range []struct{ source, value, output string }{
++		{`const f=fn(x:int)->int{print(x);x};f(1)+(f(2)*f(3))`, "7", "1\n2\n3\n"},
++		{`const f=fn()->int{print(7);7};f()/(f()-7)`, "ERROR: division by zero", "7\n7\n"},
++		{`fn(b:bool)->int {3 + if b{return 5}else{2};9}(true)`, "5", ""},
++		{`fn(b:bool)->int {3 + if b{return 5}else{2};9}(false)`, "9", ""},
++		{`-(fn()->int{print(2);2}())+^3`, "-6", "2\n"},
++	} {
++		program := parse(t, test.source)
++		if _, errors := NewSession().Check(program); len(errors) != 0 {
++			t.Fatal(errors)
++		}
++		var output bytes.Buffer
++		env := object.NewEnvironment()
++		env.Output = &output
++		value := evaluator.Eval(program, env)
++		if value.Inspect() != test.value || output.String() != test.output {
++			t.Fatalf("%s: got value=%q output=%q", test.source, value.Inspect(), output.String())
++		}
++	}
++	program := parse(t, `let x:int=3;let f=fn()->int{x+1};f`)
++	if _, errors := NewSession().Check(program); len(errors) != 0 {
++		t.Fatal(errors)
++	}
++	env := object.NewEnvironment()
++	evaluator.Eval(program, env)
++	env.Set("x", &object.String{Value: "wrong from Go"})
++	call := parse(t, `f()`)
++	if value := evaluator.Eval(call, env); value.Type() != object.ERROR_OBJ {
++		t.Fatal("checked evaluation did not guard the embedding boundary")
++	}
++}
++
++func FuzzCheckAndEvaluate(f *testing.F) {
++	for _, source := range []string{`const x:int=42;x`, `fn(x:int)->int{x+1}(2)`, `fn(x){x(x)}`, `let x=1;let x="a"`, `let b=true;if b{let x=1};x`, `let f=fn(){len("a")};let len=fn(x:int){x};f()`} {
++		f.Add(source)
++	}
++	f.Fuzz(func(t *testing.T, source string) {
++		if len(source) > 2048 {
++			t.Skip()
++		}
++		p := parser.New(lexer.New(source))
++		program := p.ParseProgram()
++		if len(p.Errors()) != 0 {
++			return
++		}
++		result, errors := NewSession().Check(program)
++		if len(errors) != 0 {
++			return
++		}
++		value := evaluator.Eval(result.Program, object.NewEnvironment())
++		if value == nil {
++			t.Fatal("nil evaluation result")
++		}
++		if err, ok := value.(*object.Error); ok {
++			for _, typeFailure := range []string{"type mismatch", "unknown operator", "not a function", "identifier not found", "cannot replace constant", "wrong number of arguments", "expected INTEGER"} {
++				if strings.Contains(err.Message, typeFailure) {
++					t.Fatalf("checker accepted a runtime type failure: %s", err.Message)
++				}
++			}
++		}
++	})
++}
+diff --git a/checker/flow.go b/checker/flow.go
+new file mode 100644
+--- /dev/null
++++ b/checker/flow.go
+@@ -0,0 +1,105 @@
++package checker
++
++import (
++	"go/interpreter/ast"
++	"go/interpreter/types"
++)
++
++func (c *check) infix(node *ast.InfixExpression, env *scope, ctx *returns) (*term, bool) {
++	node.IntegerOperands = false
++	left, leftNormal := c.expression(node.Left, env, ctx)
++	if node.Operator == "&&" || node.Operator == "||" {
++		rightScope := env.fork()
++		_, rightNormal := c.expression(node.Right, rightScope, ctx)
++		truth, known := constantTruth(node.Left)
++		skip := known && (node.Operator == "&&" && !truth || node.Operator == "||" && truth)
++		if skip || !leftNormal {
++			return boolTerm, leftNormal
++		}
++		if known {
++			c.merge(env, rightScope)
++			return boolTerm, rightNormal
++		}
++		before := env.fork()
++		if rightNormal {
++			c.merge(env, before, rightScope)
++		}
++		return boolTerm, leftNormal
++	}
++	right, rightNormal := c.expression(node.Right, env, ctx)
++	normal := leftNormal && rightNormal
++	if normal {
++		if root(left).kind == types.IntKind && root(right).kind == types.IntKind {
++			c.integerOperators = append(c.integerOperators, node)
++		} else {
++			c.operators = append(c.operators, integerOperator{node, left, right})
++		}
++	}
++	if node.Operator == "==" || node.Operator == "!=" {
++		return boolTerm, normal
++	}
++	if !normal {
++		return nullTerm, false
++	}
++	switch node.Operator {
++	case "+", "<", "<=", ">", ">=":
++		c.unify(left, right, node.Operator)
++		c.require(left, 1<<types.IntKind|1<<types.StringKind, node.Operator)
++		if node.Operator != "+" {
++			return boolTerm, true
++		}
++		return left, true
++	default:
++		c.unify(left, intTerm, node.Operator)
++		c.unify(right, intTerm, node.Operator)
++		return intTerm, true
++	}
++}
++
++func (c *check) conditional(node *ast.IfExpression, env *scope, ctx *returns) (*term, bool) {
++	_, conditionNormal := c.expression(node.Condition, env, ctx)
++	leftScope, rightScope := env.fork(), env.fork()
++	left, leftNormal := c.block(node.Consequence.Statements, leftScope, ctx)
++	right, rightNormal := nullTerm, true
++	if node.Alternative != nil {
++		right, rightNormal = c.block(node.Alternative.Statements, rightScope, ctx)
++	}
++	if !conditionNormal {
++		return nullTerm, false
++	}
++	if truth, known := constantTruth(node.Condition); known {
++		if truth {
++			c.merge(env, leftScope)
++			return left, leftNormal
++		}
++		c.merge(env, rightScope)
++		return right, rightNormal
++	}
++	if leftNormal && rightNormal {
++		c.unify(left, right, "if expression branches")
++		c.merge(env, leftScope, rightScope)
++		return left, true
++	}
++	if leftNormal {
++		c.merge(env, leftScope)
++		return left, true
++	}
++	if rightNormal {
++		c.merge(env, rightScope)
++		return right, true
++	}
++	return nullTerm, false
++}
++
++func constantTruth(expression ast.Expression) (bool, bool) {
++	switch node := expression.(type) {
++	case *ast.Boolean:
++		return node.Value, true
++	case *ast.NullLiteral:
++		return false, true
++	case *ast.IntegerLiteral, *ast.StringLiteral, *ast.FunctionLiteral:
++		return true, true
++	default:
++		return false, false
++	}
++}
+diff --git a/checker/scope.go b/checker/scope.go
+new file mode 100644
+--- /dev/null
++++ b/checker/scope.go
+@@ -0,0 +1,92 @@
++package checker
++
++type binding struct {
++	typ      *term
++	constant bool
++	defined  bool
++}
++
++type scope struct {
++	bindings   map[string]binding
++	outer      *scope
++	outerReads map[string][]*term
++}
++
++func (s *scope) recordRead(name string, typ *term) {
++	for _, previous := range s.outerReads[name] {
++		if previous == typ {
++			return
++		}
++	}
++	s.outerReads[name] = append(s.outerReads[name], typ)
++}
++
++func newScope(outer *scope) *scope {
++	return &scope{bindings: make(map[string]binding), outer: outer, outerReads: make(map[string][]*term)}
++}
++
++func (s *scope) lookup(name string) (binding, bool) {
++	for current := s; current != nil; current = current.outer {
++		if b, ok := current.bindings[name]; ok {
++			for child := s; child != current; child = child.outer {
++				child.recordRead(name, b.typ)
++			}
++			return b, true
++		}
++	}
++	return binding{}, false
++}
++
++func (s *scope) fork() *scope {
++	copy := newScope(s.outer)
++	for name, b := range s.bindings {
++		copy.bindings[name] = b
++	}
++	for name, reads := range s.outerReads {
++		copy.outerReads[name] = append([]*term(nil), reads...)
++	}
++	return copy
++}
++
++// Blocks share a function scope. Merge both possible paths, remembering names
++// that may exist but were not initialized on every continuing path.
++func (c *check) merge(target *scope, paths ...*scope) {
++	if len(paths) == 0 {
++		return
++	}
++	names := make(map[string]bool)
++	for _, path := range paths {
++		for name, reads := range path.outerReads {
++			for _, typ := range reads {
++				target.recordRead(name, typ)
++			}
++		}
++		for name := range path.bindings {
++			names[name] = true
++		}
++	}
++	for name := range names {
++		var merged binding
++		found := false
++		defined := true
++		for _, path := range paths {
++			b, ok := path.bindings[name]
++			if !ok {
++				defined = false
++				continue
++			}
++			defined = defined && b.defined
++			if !found {
++				merged, found = b, true
++			} else {
++				c.unify(merged.typ, b.typ, "binding "+name+" across branches")
++				if merged.constant != b.constant {
++					c.error("binding %s must be consistently let or const across branches", name)
++				}
++				merged.constant = merged.constant || b.constant
++			}
++		}
++		merged.defined = defined
++		target.bindings[name] = merged
++	}
++}
+diff --git a/checker/terms.go b/checker/terms.go
+new file mode 100644
+--- /dev/null
++++ b/checker/terms.go
+@@ -0,0 +1,274 @@
++package checker
++
++import (
++	"go/interpreter/types"
++	"strings"
++)
++
++const variableKind types.Kind = 255
++const allKinds uint8 = (1 << types.FunctionKind) | scalarKinds
++const scalarKinds uint8 = 1<<types.IntKind | 1<<types.StringKind | 1<<types.BoolKind | 1<<types.NullKind
++
++type term struct {
++	kind     types.Kind
++	mask     uint8
++	link     *term
++	params   []*term
++	result   *term
++	variadic bool
++}
++
++var (
++	intTerm    = &term{kind: types.IntKind}
++	stringTerm = &term{kind: types.StringKind}
++	boolTerm   = &term{kind: types.BoolKind}
++	nullTerm   = &term{kind: types.NullKind}
++)
++
++func fresh(mask uint8) *term { return &term{kind: variableKind, mask: mask} }
++
++func root(t *term) *term {
++	for t.link != nil {
++		if t.link.link != nil {
++			t.link = t.link.link
++		}
++		t = t.link
++	}
++	return t
++}
++
++func fromType(t *types.Type) *term {
++	return fromTypeMemo(t, make(map[*types.Type]*term))
++}
++
++func fromTypeMemo(t *types.Type, memo map[*types.Type]*term) *term {
++	if value, ok := memo[t]; ok {
++		return value
++	}
++	switch t.Kind {
++	case types.IntKind:
++		return intTerm
++	case types.StringKind:
++		return stringTerm
++	case types.BoolKind:
++		return boolTerm
++	case types.NullKind:
++		return nullTerm
++	case types.ScalarKind:
++		return fresh(scalarKinds)
++	case types.FunctionKind:
++		params := make([]*term, len(t.Params))
++		value := &term{kind: types.FunctionKind, params: params, variadic: t.Variadic}
++		memo[t] = value
++		for i, p := range t.Params {
++			params[i] = fromTypeMemo(p, memo)
++		}
++		value.result = fromTypeMemo(t.Result, memo)
++		return value
++	default:
++		return fresh(allKinds)
++	}
++}
++
++func occurs(variable, t *term) bool {
++	return occursMemo(variable, t, make(map[*term]bool))
++}
++
++func occursMemo(variable, t *term, seen map[*term]bool) bool {
++	t = root(t)
++	if variable == t {
++		return true
++	}
++	if t.kind == types.FunctionKind {
++		if seen[t] {
++			return false
++		}
++		seen[t] = true
++		for _, p := range t.params {
++			if occursMemo(variable, p, seen) {
++				return true
++			}
++		}
++		return occursMemo(variable, t.result, seen)
++	}
++	return false
++}
++
++func (c *check) unify(a, b *term, context string) {
++	c.unifyMemo(a, b, context, nil, 0)
++}
++
++type termPair struct{ a, b *term }
++
++func (c *check) unifyMemo(a, b *term, context string, seen map[termPair]bool, depth int) {
++	if depth >= 512 {
++		c.error("maximum type unification depth exceeded")
++		return
++	}
++	a, b = root(a), root(b)
++	if a == b {
++		return
++	}
++	if a.kind != variableKind && b.kind == variableKind {
++		a, b = b, a
++	}
++	if a.kind == variableKind {
++		if b.kind == variableKind {
++			mask := a.mask & b.mask
++			if mask == 0 {
++				c.error("%s: incompatible type constraints", context)
++				return
++			}
++			b.mask = mask
++		} else if a.mask&(1<<b.kind) == 0 {
++			c.error("%s: incompatible type %s", context, describe(b))
++			return
++		}
++		if b.kind == types.FunctionKind && occurs(a, b) {
++			c.error("%s: cannot infer an infinite recursive type", context)
++			return
++		}
++		a.link = b
++		return
++	}
++	if a.kind != b.kind {
++		c.error("%s: type mismatch: %s and %s", context, describe(a), describe(b))
++		return
++	}
++	if a.kind == types.FunctionKind {
++		if seen == nil {
++			seen = make(map[termPair]bool)
++		}
++		pair := termPair{a, b}
++		if seen[pair] {
++			return
++		}
++		seen[pair] = true
++		if len(a.params) != len(b.params) || a.variadic != b.variadic {
++			c.error("%s: function signature mismatch: %s and %s", context, describe(a), describe(b))
++			return
++		}
++		for i := range a.params {
++			c.unifyMemo(a.params[i], b.params[i], context, seen, depth+1)
++		}
++		c.unifyMemo(a.result, b.result, context, seen, depth+1)
++	}
++}
++
++func (c *check) require(t *term, mask uint8, context string) {
++	t = root(t)
++	if t.kind == variableKind {
++		if t.mask&mask == 0 {
++			c.error("%s: incompatible type constraints", context)
++			return
++		}
++		t.mask &= mask
++		return
++	}
++	if mask&(1<<t.kind) == 0 {
++		c.error("%s: incompatible type %s", context, describe(t))
++	}
++}
++
++func freeze(t *term) *types.Type {
++	return freezeMemo(t, make(map[*term]*types.Type))
++}
++
++func freezeMemo(t *term, memo map[*term]*types.Type) *types.Type {
++	t = root(t)
++	if value, found := memo[t]; found {
++		return value
++	}
++	switch t.kind {
++	case types.IntKind:
++		return types.Int
++	case types.StringKind:
++		return types.String
++	case types.BoolKind:
++		return types.Bool
++	case types.NullKind:
++		return types.Null
++	case types.FunctionKind:
++		params := make([]*types.Type, len(t.params))
++		value := &types.Type{Kind: types.FunctionKind, Params: params, Variadic: t.variadic}
++		memo[t] = value
++		for i, p := range t.params {
++			params[i] = freezeMemo(p, memo)
++			if params[i] == nil {
++				memo[t] = nil
++				return nil
++			}
++		}
++		result := freezeMemo(t.result, memo)
++		if result == nil {
++			memo[t] = nil
++			return nil
++		}
++		value.Result = result
++		return value
++	default:
++		return nil
++	}
++}
++
++func describe(t *term) string {
++	var out strings.Builder
++	remaining := 128
++	describeInto(t, &out, &remaining, 0)
++	return out.String()
++}
++
++func describeInto(t *term, out *strings.Builder, remaining *int, depth int) {
++	if *remaining <= 0 || depth >= 64 {
++		out.WriteString("...")
++		return
++	}
++	*remaining--
++	t = root(t)
++	if t.kind == variableKind {
++		out.WriteByte('?')
++		return
++	}
++	if t.kind != types.FunctionKind {
++		out.WriteString(freeze(t).String())
++		return
++	}
++	out.WriteString("fn(")
++	for i, p := range t.params {
++		if i > 0 {
++			out.WriteString(", ")
++		}
++		describeInto(p, out, remaining, depth+1)
++		if *remaining <= 0 {
++			break
++		}
++	}
++	if t.variadic {
++		if len(t.params) != 0 {
++			out.WriteString(", ")
++		}
++		out.WriteString("...")
++	}
++	out.WriteString(") -> ")
++	describeInto(t.result, out, remaining, depth+1)
++}
++
++// Built-in reads may retain str's scalar constraint without choosing a single
++// overload, for example when print(str) merely displays the function.
++func freezeConstraint(t *term) *types.Type {
++	t = root(t)
++	if t.kind == variableKind {
++		if t.mask&scalarKinds == t.mask {
++			return types.Scalar
++		}
++		return types.Any
++	}
++	if t.kind != types.FunctionKind {
++		return freeze(t)
++	}
++	params := make([]*types.Type, len(t.params))
++	for i, p := range t.params {
++		params[i] = freezeConstraint(p)
++	}
++	return &types.Type{Kind: types.FunctionKind, Params: params, Result: freezeConstraint(t.result), Variadic: t.variadic}
++}
+diff --git a/evaluator/builtins.go b/evaluator/builtins.go
+--- a/evaluator/builtins.go
++++ b/evaluator/builtins.go
+@@ -3,16 +3,17 @@
+ import (
+ 	"fmt"
+ 	"go/interpreter/object"
++	"go/interpreter/types"
+ 	"io"
+ )
+ 
+ var builtins = map[string]*object.Builtin{
+-	"len":      {Fn: builtinLen},
+-	"byte_len": {Fn: builtinByteLen},
+-	"contains": {Fn: builtinContains},
+-	"slice":    {Fn: builtinSlice},
+-	"str":      {Fn: builtinStr},
+-	"print": {Fn: func(out io.Writer, args ...object.Object) object.Object {
++	"len":      {Fn: builtinLen, Signature: types.Function([]*types.Type{types.String}, types.Int)},
++	"byte_len": {Fn: builtinByteLen, Signature: types.Function([]*types.Type{types.String}, types.Int)},
++	"contains": {Fn: builtinContains, Signature: types.Function([]*types.Type{types.String, types.String}, types.Bool)},
++	"slice":    {Fn: builtinSlice, Signature: types.Function([]*types.Type{types.String, types.Int, types.Int}, types.String)},
++	"str":      {Fn: builtinStr, Signature: types.Function([]*types.Type{types.Scalar}, types.String)},
++	"print": {Signature: &types.Type{Kind: types.FunctionKind, Variadic: true, Result: types.Null}, Fn: func(out io.Writer, args ...object.Object) object.Object {
+ 		for i, argument := range args {
+ 			if i > 0 {
+ 				if _, err := io.WriteString(out, " "); err != nil {
+@@ -29,3 +30,12 @@
+ 		return NULL
+ 	}},
+ }
++
++// BuiltinSignature keeps the checker and runtime's built-in declarations together.
++func BuiltinSignature(name string) (*types.Type, bool) {
++	builtin, ok := builtins[name]
++	if !ok {
++		return nil, false
++	}
++	return builtin.Signature, true
++}
+diff --git a/evaluator/constants_test.go b/evaluator/constants_test.go
+new file mode 100644
+--- /dev/null
++++ b/evaluator/constants_test.go
+@@ -0,0 +1,17 @@
++package evaluator
++
++import (
++	"go/interpreter/object"
++	"strings"
++	"testing"
++)
++
++func TestConstantRuntimeProtection(t *testing.T) {
++	for _, source := range []string{`const x=1;let x=2`, `const x=1;const x=2`, `let x=1;const x=2`} {
++		value := testEval(source)
++		if err, ok := value.(*object.Error); !ok || !strings.Contains(err.Message, "constant") {
++			t.Fatalf("source %s: got %#v", source, value)
++		}
++	}
++	testIntegerObject(t, testEval(`const x=1;let f=fn(){const x=2;x};f();x`), 1)
++}
+diff --git a/evaluator/evaluator.go b/evaluator/evaluator.go
+--- a/evaluator/evaluator.go
++++ b/evaluator/evaluator.go
+@@ -37,6 +37,16 @@
+ 		}
+ 		return newError("identifier not found: %s", node.Value)
+ 	case *ast.PrefixExpression:
++		if node.IntegerOperand {
++			value, control := checkedInteger(node.Right, env)
++			if control != nil {
++				return control
++			}
++			if node.Operator == "-" {
++				return &object.Integer{Value: -value}
++			}
++			return &object.Integer{Value: ^value}
++		}
+ 		if node.Operator == "-" || node.Operator == "^" {
+ 			value, ok, err := integerValue(node, env)
+ 			if err != nil {
+@@ -52,6 +62,17 @@
+ 		}
+ 		return evalPrefixExpression(node.Operator, right)
+ 	case *ast.InfixExpression:
++		if node.IntegerOperands {
++			left, control := checkedInteger(node.Left, env)
++			if control != nil {
++				return control
++			}
++			right, control := checkedInteger(node.Right, env)
++			if control != nil {
++				return control
++			}
++			return evalIntegerInfixExpression(node.Operator, left, right)
++		}
+ 		if node.Operator != "&&" && node.Operator != "||" {
+ 			left, leftOK, err := integerValue(node.Left, env)
+ 			if err != nil {
+@@ -90,7 +111,15 @@
+ 		if isControlFlow(value) {
+ 			return value
+ 		}
+-		env.Set(node.Name.Value, value)
++		var defined object.Object
++		if node.Constant {
++			defined = env.SetConstant(node.Name.Value, value)
++		} else {
++			defined = env.Set(node.Name.Value, value)
++		}
++		if isError(defined) {
++			return defined
++		}
+ 		return NULL
+ 	case *ast.ReturnStatement:
+ 		value := Eval(node.ReturnValue, env)
+@@ -121,7 +150,7 @@
+ 		}
+ 		return NULL
+ 	case *ast.FunctionLiteral:
+-		return &object.Function{Parameters: node.Parameters, Body: node.Body, Env: env}
++		return &object.Function{Parameters: node.Parameters, Body: node.Body, Env: env, Signature: node.Signature}
+ 	case *ast.CallExpression:
+ 		return evalCall(node, env)
+ 	default:
+diff --git a/evaluator/integers.go b/evaluator/integers.go
+--- a/evaluator/integers.go
++++ b/evaluator/integers.go
+@@ -4,6 +4,59 @@
+ 	"go/interpreter/ast"
+ 	"go/interpreter/object"
+ )
++
++// Checked integer expressions can evaluate calls and control flow once, in
++// source order. Keep guards at the Go embedding boundary: a caller may evaluate
++// a checked AST with an environment that did not pass through the checker.
++func checkedInteger(node ast.Expression, env *object.Environment) (int64, object.Object) {
++	switch node := node.(type) {
++	case *ast.IntegerLiteral:
++		return node.Value, nil
++	case *ast.Identifier:
++		if value, ok := env.Get(node.Value); ok {
++			if integer, ok := value.(*object.Integer); ok {
++				return integer.Value, nil
++			}
++			return 0, newError("expected INTEGER, got %s", value.Type())
++		}
++		return 0, newError("identifier not found: %s", node.Value)
++	case *ast.PrefixExpression:
++		if node.IntegerOperand {
++			value, control := checkedInteger(node.Right, env)
++			if control != nil {
++				return 0, control
++			}
++			if node.Operator == "-" {
++				return -value, nil
++			}
++			return ^value, nil
++		}
++	case *ast.InfixExpression:
++		if node.IntegerOperands {
++			left, control := checkedInteger(node.Left, env)
++			if control != nil {
++				return 0, control
++			}
++			right, control := checkedInteger(node.Right, env)
++			if control != nil {
++				return 0, control
++			}
++			value, err := integerArithmetic(node.Operator, left, right)
++			if err != nil {
++				return 0, err
++			}
++			return value, nil
++		}
++	}
++	value := Eval(node, env)
++	if isControlFlow(value) {
++		return 0, value
++	}
++	if integer, ok := value.(*object.Integer); ok {
++		return integer.Value, nil
++	}
++	return 0, newError("expected INTEGER, got %s", value.Type())
++}
+ 
+ // Evaluate pure integer subexpressions without allocating an Object for every
+ // intermediate value. Calls and control flow stay in the ordinary evaluator so
+diff --git a/lexer/lexer.go b/lexer/lexer.go
+--- a/lexer/lexer.go
++++ b/lexer/lexer.go
+@@ -58,7 +58,13 @@
+ 	case '+':
+ 		tok = newToken(token.PLUS, l.ch)
+ 	case '-':
+-		tok = newToken(token.MINUS, l.ch)
++		if l.peekChar() == '>' {
++			tok = l.newTwoCharToken(token.ARROW, l.ch)
++		} else {
++			tok = newToken(token.MINUS, l.ch)
++		}
++	case ':':
++		tok = newToken(token.COLON, l.ch)
+ 	case '!':
+ 		if l.peekChar() == '=' {
+ 			tok = l.newTwoCharToken(token.NOT_EQ, l.ch)
+diff --git a/main.go b/main.go
+--- a/main.go
++++ b/main.go
+@@ -2,6 +2,7 @@
+ 
+ import (
+ 	"fmt"
++	"go/interpreter/checker"
+ 	"go/interpreter/evaluator"
+ 	"go/interpreter/lexer"
+ 	"go/interpreter/object"
+@@ -43,6 +44,10 @@
+ 		p.PrintParserErrors(errOut)
+ 		return 1
+ 	}
++	if _, errors := checker.NewSession().Check(program); len(errors) != 0 {
++		checker.PrintErrors(errOut, errors)
++		return 1
++	}
+ 	env := object.NewEnvironment()
+ 	env.Output = out
+ 	if result := evaluator.Eval(program, env); result.Type() == object.ERROR_OBJ {
+diff --git a/main_test.go b/main_test.go
+--- a/main_test.go
++++ b/main_test.go
+@@ -14,6 +14,10 @@
+ 		status                          int
+ 	}{
+ 		{"output", "let add=fn(x,y){x+y;}; print(add(2,3));", "5\n", "", 0},
++		{"typed constants", `const answer:int=42;const twice=fn(n:int)->int{n*2};print(twice(answer));`, "84\n", "", 0},
++		{"type error has no side effects", `print("before");let x:int="bad";`, "", "Type errors:", 1},
++		{"constant error has no side effects", `const x=1;print(x);let x=2;`, "", "cannot replace constant", 1},
++		{"unused bad function checked", `print("before");let f=fn(x:int)->int{"bad"};`, "", "Type errors:", 1},
+ 		{"text output", `print("hello, " + "🐢"); print(len("hé🐢"), byte_len("hé🐢"));`, "hello, 🐢\n3 7\n", "", 0},
+ 		{"invalid string has no side effects", `print("before"); let text="\q";`, "", "invalid string escape", 1},
+ 		{"invalid UTF-8 escape", `print("\xFF");`, "", "string is not valid UTF-8", 1},
+diff --git a/object/environment.go b/object/environment.go
+--- a/object/environment.go
++++ b/object/environment.go
+@@ -7,15 +7,21 @@
+ 	value Object
+ }
+ 
++type storedBinding struct {
++	value    Object
++	constant bool
++}
++
+ // Most function scopes contain only a few names. Store those without allocating
+ // a map, and switch to a map when a scope grows beyond the inline capacity.
+ type Environment struct {
+-	bindings  [4]binding
+-	count     int
+-	store     map[string]Object
+-	outer     *Environment
+-	Output    io.Writer
+-	CallDepth int
++	bindings     [4]binding
++	count        uint8
++	constantBits uint8
++	store        map[string]storedBinding
++	outer        *Environment
++	Output       io.Writer
++	CallDepth    int
+ }
+ 
+ func NewEnvironment() *Environment {
+@@ -30,10 +36,10 @@
+ 	for current := e; current != nil; current = current.outer {
+ 		if current.store != nil {
+ 			if value, ok := current.store[name]; ok {
+-				return value, true
++				return value.value, true
+ 			}
+ 		} else {
+-			for i := 0; i < current.count; i++ {
++			for i := uint8(0); i < current.count; i++ {
+ 				if current.bindings[i].name == name {
+ 					return current.bindings[i].value, true
+ 				}
+@@ -45,26 +51,59 @@
+ 
+ func (e *Environment) Set(name string, value Object) Object {
+ 	if e.store != nil {
+-		e.store[name] = value
++		if previous := e.store[name]; previous.constant {
++			return &Error{Message: "cannot replace constant: " + name}
++		}
++		e.store[name] = storedBinding{value: value}
+ 		return value
+ 	}
+-	for i := 0; i < e.count; i++ {
++	for i := uint8(0); i < e.count; i++ {
+ 		if e.bindings[i].name == name {
++			if e.constantBits&(1<<i) != 0 {
++				return &Error{Message: "cannot replace constant: " + name}
++			}
+ 			e.bindings[i].value = value
+ 			return value
+ 		}
+ 	}
+-	if e.count < len(e.bindings) {
++	if int(e.count) < len(e.bindings) {
+ 		e.bindings[e.count] = binding{name: name, value: value}
+ 		e.count++
+ 		return value
+ 	}
+-	e.store = make(map[string]Object, e.count+1)
+-	for i := 0; i < e.count; i++ {
+-		e.store[e.bindings[i].name] = e.bindings[i].value
++	e.store = make(map[string]storedBinding, int(e.count)+1)
++	for i := uint8(0); i < e.count; i++ {
++		e.store[e.bindings[i].name] = storedBinding{value: e.bindings[i].value, constant: e.constantBits&(1<<i) != 0}
+ 	}
+ 	e.bindings = [4]binding{}
+ 	e.count = 0
+-	e.store[name] = value
++	e.constantBits = 0
++	e.store[name] = storedBinding{value: value}
+ 	return value
+ }
++
++func (e *Environment) SetConstant(name string, value Object) Object {
++	if e.hasLocal(name) {
++		return &Error{Message: "cannot redeclare binding as constant: " + name}
++	}
++	e.Set(name, value)
++	if e.store != nil {
++		e.store[name] = storedBinding{value: value, constant: true}
++	} else {
++		e.constantBits |= 1 << (e.count - 1)
++	}
++	return value
++}
++
++func (e *Environment) hasLocal(name string) bool {
++	if e.store != nil {
++		_, ok := e.store[name]
++		return ok
++	}
++	for i := uint8(0); i < e.count; i++ {
++		if e.bindings[i].name == name {
++			return true
++		}
++	}
++	return false
++}
+diff --git a/object/environment_test.go b/object/environment_test.go
+--- a/object/environment_test.go
++++ b/object/environment_test.go
+@@ -32,3 +32,33 @@
+ 		t.Fatal(value, ok)
+ 	}
+ }
++
++func TestConstantsSurviveScopeGrowth(t *testing.T) {
++	env := NewEnvironment()
++	for i := 0; i < 20; i++ {
++		name := fmt.Sprintf("name%d", i)
++		value := &Integer{Value: int64(i)}
++		if i%2 == 0 {
++			env.SetConstant(name, value)
++		} else {
++			env.Set(name, value)
++		}
++	}
++	for i := 0; i < 20; i++ {
++		name := fmt.Sprintf("name%d", i)
++		result := env.Set(name, &Integer{Value: 99})
++		value, _ := env.Get(name)
++		if i%2 == 0 {
++			if result.Type() != ERROR_OBJ || value.(*Integer).Value != int64(i) {
++				t.Fatal(name, result, value)
++			}
++		} else if result.Type() == ERROR_OBJ || value.(*Integer).Value != 99 {
++			t.Fatal(name, result, value)
++		}
++	}
++	inner := NewEnclosedEnvironment(env)
++	inner.SetConstant("name0", &String{Value: "local"})
++	if value, _ := env.Get("name0"); value.(*Integer).Value != 0 {
++		t.Fatal(value)
++	}
++}
+diff --git a/object/object.go b/object/object.go
+--- a/object/object.go
++++ b/object/object.go
+@@ -2,6 +2,7 @@
+ 
+ import (
+ 	"go/interpreter/ast"
++	"go/interpreter/types"
+ 	"io"
+ 	"strconv"
+ 	"strings"
+@@ -59,6 +60,7 @@
+ 	Parameters []*ast.Identifier
+ 	Body       *ast.BlockStatement
+ 	Env        *Environment
++	Signature  *types.Type
+ }
+ 
+ func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
+@@ -66,12 +68,20 @@
+ 	parameters := make([]string, len(f.Parameters))
+ 	for i, parameter := range f.Parameters {
+ 		parameters[i] = parameter.Value
++		if f.Signature != nil {
++			parameters[i] += ": " + f.Signature.Params[i].String()
++		}
+ 	}
+-	return "fn(" + strings.Join(parameters, ", ") + ") { " + f.Body.String() + " }"
++	result := ""
++	if f.Signature != nil {
++		result = " -> " + f.Signature.Result.String()
++	}
++	return "fn(" + strings.Join(parameters, ", ") + ")" + result + " { " + f.Body.String() + " }"
+ }
+ 
+ type Builtin struct {
+-	Fn func(io.Writer, ...Object) Object
++	Fn        func(io.Writer, ...Object) Object
++	Signature *types.Type
+ }
+ 
+ func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
+diff --git a/parser/annotations_test.go b/parser/annotations_test.go
+new file mode 100644
+--- /dev/null
++++ b/parser/annotations_test.go
+@@ -0,0 +1,40 @@
++package parser
++
++import (
++	"go/interpreter/ast"
++	"go/interpreter/lexer"
++	"strings"
++	"testing"
++)
++
++func TestApprovedTypeSyntax(t *testing.T) {
++	source := `const op:fn(int,int)->int=fn(a:int,b:int)->int{a+b};let apply=fn(f:fn(int)->string,x:int)->string{f(x)};const empty:null=null;`
++	p := New(lexer.New(source))
++	program := p.ParseProgram()
++	if len(p.Errors()) != 0 {
++		t.Fatal(p.Errors())
++	}
++	decl := program.Statements[0].(*ast.LetStatement)
++	fn := decl.Value.(*ast.FunctionLiteral)
++	if !decl.Constant || decl.Annotation.String() != "fn(int, int) -> int" || fn.Parameters[0].Annotation.String() != "int" || fn.ReturnType.String() != "int" {
++		t.Fatal("missing annotations or const flag")
++	}
++	if !strings.Contains(program.String(), "const op: fn(int, int) -> int = fn(a: int, b: int) -> int") {
++		t.Fatal(program.String())
++	}
++}
++
++func TestInvalidTypeSyntax(t *testing.T) {
++	for _, source := range []string{
++		`let x:float=1`, `let x:=1`, `const x;`, `fn(x:){x}`, `fn(x:int,x:int){x}`,
++		`fn(x:int)->{x}`, `let f:fn(int)=fn(x){x}`, `let f:fn(int,)->int=fn(x){x}`,
++		`let f:fn()->fn(int)->=fn(){1}`, `let x:any=1`,
++		`let deep:` + strings.Repeat("fn()->", 200) + `int=1`,
++	} {
++		p := New(lexer.New(source))
++		p.ParseProgram()
++		if len(p.Errors()) == 0 {
++			t.Errorf("accepted %s", source)
++		}
++	}
++}
+diff --git a/parser/parser.go b/parser/parser.go
+--- a/parser/parser.go
++++ b/parser/parser.go
+@@ -31,8 +31,9 @@
+ 	l     *lexer.Lexer
+ 	nodes *nodePools
+ 
+-	errors []string
+-	depth  int
++	errors    []string
++	depth     int
++	typeDepth int
+ 
+ 	curToken  token.Token
+ 	peekToken token.Token
+@@ -178,6 +179,14 @@
+ 	if len(p.errors) != errorCount {
+ 		return nil
+ 	}
++	if p.peekTokenIs(token.ARROW) {
++		p.nextToken()
++		p.nextToken()
++		lit.ReturnType = p.parseType()
++		if lit.ReturnType == nil {
++			return nil
++		}
++	}
+ 
+ 	if !p.expectPeek(token.LBRACE) {
+ 		return nil
+@@ -202,6 +211,14 @@
+ 
+ 	names := map[string]bool{p.curToken.Literal: true}
+ 	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
++	if p.peekTokenIs(token.COLON) {
++		p.nextToken()
++		p.nextToken()
++		ident.Annotation = p.parseType()
++		if ident.Annotation == nil {
++			return nil
++		}
++	}
+ 	identifiers = append(identifiers, ident)
+ 
+ 	for p.peekTokenIs(token.COMMA) {
+@@ -215,6 +232,14 @@
+ 		}
+ 		names[p.curToken.Literal] = true
+ 		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
++		if p.peekTokenIs(token.COLON) {
++			p.nextToken()
++			p.nextToken()
++			ident.Annotation = p.parseType()
++			if ident.Annotation == nil {
++				return nil
++			}
++		}
+ 		identifiers = append(identifiers, ident)
+ 	}
+ 
+@@ -299,7 +324,7 @@
+ 
+ func (p *Parser) parseStatement() ast.Statement {
+ 	switch p.curToken.Type {
+-	case token.LET:
++	case token.LET, token.CONST:
+ 		return p.parseLetStatement()
+ 	case token.RETURN:
+ 		return p.parseReturnStatement()
+@@ -384,12 +409,21 @@
+ func (p *Parser) parseLetStatement() *ast.LetStatement {
+ 	stmt := p.letNode()
+ 	stmt.Token = p.curToken
++	stmt.Constant = p.curTokenIs(token.CONST)
+ 
+ 	if !p.expectPeek(token.IDENT) {
+ 		return nil
+ 	}
+ 
+ 	stmt.Name = p.parseIdentifier().(*ast.Identifier)
++	if p.peekTokenIs(token.COLON) {
++		p.nextToken()
++		p.nextToken()
++		stmt.Annotation = p.parseType()
++		if stmt.Annotation == nil {
++			return nil
++		}
++	}
+ 
+ 	if !p.expectPeek(token.ASSIGN) {
+ 		return nil
+diff --git a/parser/regression_test.go b/parser/regression_test.go
+--- a/parser/regression_test.go
++++ b/parser/regression_test.go
+@@ -75,7 +75,7 @@
+ }
+ 
+ func FuzzParse(f *testing.F) {
+-	for _, input := range []string{"return 10", "fn(x) { x+1; }", "if true {", "1/0", "/*/", "a-b", "true&&false", "let x = ;", `"hé🐢"`, `"\q"`, `slice("a",0,1)`} {
++	for _, input := range []string{"return 10", "fn(x) { x+1; }", "if true {", "1/0", "/*/", "a-b", "true&&false", "let x = ;", `"hé🐢"`, `"\q"`, `slice("a",0,1)`, `const f:fn(int)->int=fn(x:int)->int{x}`, `let f:fn()->fn(int)->string=fn(){fn(x:int){str(x)}}`} {
+ 		f.Add(input)
+ 	}
+ 	f.Fuzz(func(t *testing.T, source string) {
+diff --git a/parser/types.go b/parser/types.go
+new file mode 100644
+--- /dev/null
++++ b/parser/types.go
+@@ -0,0 +1,61 @@
++package parser
++
++import (
++	"go/interpreter/token"
++	"go/interpreter/types"
++)
++
++func (p *Parser) parseType() *types.Type {
++	if p.typeDepth >= 128 {
++		p.errors = append(p.errors, "maximum type nesting depth exceeded")
++		return nil
++	}
++	p.typeDepth++
++	defer func() { p.typeDepth-- }()
++	if p.curTokenIs(token.FUNCTION) {
++		if !p.expectPeek(token.LPAREN) {
++			return nil
++		}
++		var params []*types.Type
++		if !p.peekTokenIs(token.RPAREN) {
++			p.nextToken()
++			param := p.parseType()
++			if param == nil {
++				return nil
++			}
++			params = append(params, param)
++			for p.peekTokenIs(token.COMMA) {
++				p.nextToken()
++				p.nextToken()
++				param = p.parseType()
++				if param == nil {
++					return nil
++				}
++				params = append(params, param)
++			}
++		}
++		if !p.expectPeek(token.RPAREN) || !p.expectPeek(token.ARROW) {
++			return nil
++		}
++		p.nextToken()
++		result := p.parseType()
++		if result == nil {
++			return nil
++		}
++		return types.Function(params, result)
++	}
++	if p.curTokenIs(token.IDENT) || p.curTokenIs(token.NULL) {
++		switch p.curToken.Literal {
++		case "int":
++			return types.Int
++		case "string":
++			return types.String
++		case "bool":
++			return types.Bool
++		case "null":
++			return types.Null
++		}
++	}
++	p.errors = append(p.errors, "unknown or invalid type: "+p.curToken.Literal)
++	return nil
++}
+diff --git a/repl/repl.go b/repl/repl.go
+--- a/repl/repl.go
++++ b/repl/repl.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"bufio"
+ 	"fmt"
++	"go/interpreter/checker"
+ 	"go/interpreter/evaluator"
+ 	"go/interpreter/lexer"
+ 	"go/interpreter/object"
+@@ -17,6 +18,7 @@
+ 	scanner.Buffer(make([]byte, 4096), 1024*1024)
+ 	env := object.NewEnvironment()
+ 	env.Output = out
++	types := checker.NewSession()
+ 	for {
+ 		if _, err := io.WriteString(out, PROMPT); err != nil {
+ 			return err
+@@ -34,7 +36,13 @@
+ 			p.PrintParserErrors(out)
+ 			continue
+ 		}
++		checked, errors := types.Check(program)
++		if len(errors) != 0 {
++			checker.PrintErrors(out, errors)
++			continue
++		}
+ 		result := evaluator.Eval(program, env)
++		types.Commit(checked, env)
+ 		if result.Type() != object.NULL_OBJ {
+ 			if _, err := fmt.Fprintln(out, result.Inspect()); err != nil {
+ 				return err
+diff --git a/repl/repl_test.go b/repl/repl_test.go
+--- a/repl/repl_test.go
++++ b/repl/repl_test.go
+@@ -34,6 +34,22 @@
+ 	}
+ }
+ 
++func TestREPLTypesConstantsAndRuntimeFailure(t *testing.T) {
++	input := "const cap:int=10;\nlet cap=20;\ncap\nlet x=1;\nlet x=\"bad\";print(99);\nx\nlet saved=3;1/0;let missing=4;\nsaved\nmissing\n.quit\n"
++	var out bytes.Buffer
++	if err := Start(strings.NewReader(input), &out); err != nil {
++		t.Fatal(err)
++	}
++	for _, want := range []string{"cannot replace constant", ">> 10\n", "type mismatch", ">> 1\n", "division by zero", ">> 3\n", "identifier not found: missing"} {
++		if !strings.Contains(out.String(), want) {
++			t.Fatalf("missing %q in %q", want, out.String())
++		}
++	}
++	if strings.Contains(out.String(), "99\n") {
++		t.Fatal("type-invalid entry executed print")
++	}
++}
++
+ func TestLongLines(t *testing.T) {
+ 	var out bytes.Buffer
+ 	if err := Start(strings.NewReader("//"+strings.Repeat("x", 100000)+"\n42\n.quit\n"), &out); err != nil {
+diff --git a/token/token.go b/token/token.go
+--- a/token/token.go
++++ b/token/token.go
+@@ -50,6 +50,9 @@
+ 	ELSE
+ 	RETURN
+ 	NULL
++	COLON
++	ARROW
++	CONST
+ )
+ 
+ var tokenNames = [...]string{
+@@ -94,6 +97,9 @@
+ 	"ELSE",
+ 	"RETURN",
+ 	"NULL",
++	":",
++	"->",
++	"CONST",
+ }
+ 
+ func (t TokenType) String() string {
+@@ -109,6 +115,8 @@
+ 		return FUNCTION
+ 	case "let":
+ 		return LET
++	case "const":
++		return CONST
+ 	case "true":
+ 		return TRUE
+ 	case "false":
+diff --git a/types/types.go b/types/types.go
+new file mode 100644
+--- /dev/null
++++ b/types/types.go
+@@ -0,0 +1,93 @@
++// Package types describes the language's static types. Resolved types are
++// immutable; the checker keeps its inference variables in a separate package.
++package types
++
++import "strings"
++
++type Kind uint8
++
++const (
++	IntKind Kind = iota
++	StringKind
++	BoolKind
++	NullKind
++	FunctionKind
++	AnyKind    // Internal parameter type for variadic print.
++	ScalarKind // Internal parameter constraint for str.
++)
++
++type Type struct {
++	Kind     Kind
++	Params   []*Type
++	Result   *Type
++	Variadic bool
++}
++
++var (
++	Int    = &Type{Kind: IntKind}
++	String = &Type{Kind: StringKind}
++	Bool   = &Type{Kind: BoolKind}
++	Null   = &Type{Kind: NullKind}
++	Any    = &Type{Kind: AnyKind}
++	Scalar = &Type{Kind: ScalarKind}
++)
++
++func Function(params []*Type, result *Type) *Type {
++	return &Type{Kind: FunctionKind, Params: params, Result: result}
++}
++
++func (t *Type) String() string {
++	var out strings.Builder
++	remaining := 128
++	t.write(&out, &remaining, 0)
++	return out.String()
++}
++
++// Inferred higher-order signatures can share subtypes exponentially. Bound
++// their display rather than expanding the entire graph into an error message.
++func (t *Type) write(out *strings.Builder, remaining *int, depth int) {
++	if *remaining <= 0 || depth >= 64 {
++		out.WriteString("...")
++		return
++	}
++	*remaining--
++	if t == nil {
++		out.WriteByte('?')
++		return
++	}
++	switch t.Kind {
++	case IntKind:
++		out.WriteString("int")
++	case StringKind:
++		out.WriteString("string")
++	case BoolKind:
++		out.WriteString("bool")
++	case NullKind:
++		out.WriteString("null")
++	case AnyKind:
++		out.WriteString("any")
++	case ScalarKind:
++		out.WriteString("scalar")
++	case FunctionKind:
++		out.WriteString("fn(")
++		for i, p := range t.Params {
++			if i > 0 {
++				out.WriteString(", ")
++			}
++			p.write(out, remaining, depth+1)
++			if *remaining <= 0 {
++				break
++			}
++		}
++		if t.Variadic {
++			if len(t.Params) != 0 {
++				out.WriteString(", ")
++			}
++			out.WriteString("...")
++		}
++		out.WriteString(") -> ")
++		t.Result.write(out, remaining, depth+1)
++	default:
++		out.WriteByte('?')
++	}
++}

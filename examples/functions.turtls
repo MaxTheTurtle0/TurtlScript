@@ -1,0 +1,16 @@
+// Functions capture their surrounding scope.
+let make_adder = fn(x) {
+    fn(y) { x + y; };
+};
+
+let add_five = make_adder(5);
+print(add_five(3));
+
+// Recursive functions can refer to their own name.
+let factorial = fn(n) {
+    if n <= 1 { return 1; }
+    n * factorial(n-1);
+};
+
+print(factorial(10));
+print(false && (1 / 0 == 0)); // The right side is never evaluated.
