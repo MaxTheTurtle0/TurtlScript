@@ -27,7 +27,7 @@ go run . examples/strings.turtls
 go run . examples/types.turtls
 ```
 
-## Build the interpreter
+## Build the command
 
 ```sh
 go build -o turtls .
@@ -35,5 +35,16 @@ go build -o turtls .
 ```
 
 Run `./turtls` without a file argument to start the REPL.
+
+## Compile a file
+
+```sh
+./turtls build -o functions examples/functions.turtls
+./functions
+```
+
+The compiler generates Go and builds a standalone native executable. Go is required to build it; the resulting program runs without Go or TurtlScript. Use `./turtls emit-go examples/functions.turtls` to inspect the generated source.
+
+See [ahead-of-time compilation](compilation.md) for output paths, language behavior, and backend limits.
 
 Continue with the [language guide](language.md) and [type system guide](types.md).

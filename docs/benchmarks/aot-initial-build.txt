@@ -1,0 +1,24 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTBuild/small         	       3	 126336444 ns/op
+BenchmarkAoTBuild/small         	       3	 118897549 ns/op
+BenchmarkAoTBuild/small         	       3	 125552104 ns/op
+BenchmarkAoTBuild/arithmetic    	       3	 132572725 ns/op
+BenchmarkAoTBuild/arithmetic    	       3	 135877681 ns/op
+BenchmarkAoTBuild/arithmetic    	       3	 137055762 ns/op
+BenchmarkAoTBuild/factorial     	       3	 122294727 ns/op
+BenchmarkAoTBuild/factorial     	       3	 122186671 ns/op
+BenchmarkAoTBuild/factorial     	       3	 123524347 ns/op
+BenchmarkAoTBuild/fibonacci     	       3	 119301250 ns/op
+BenchmarkAoTBuild/fibonacci     	       3	 119289051 ns/op
+BenchmarkAoTBuild/fibonacci     	       3	 118256136 ns/op
+BenchmarkAoTBuild/closures      	       3	 122435964 ns/op
+BenchmarkAoTBuild/closures      	       3	 122107721 ns/op
+BenchmarkAoTBuild/closures      	       3	 122932534 ns/op
+BenchmarkAoTBuild/unicode       	       3	 123463834 ns/op
+BenchmarkAoTBuild/unicode       	       3	 123825523 ns/op
+BenchmarkAoTBuild/unicode       	       3	 125110685 ns/op
+PASS
+ok  	go/interpreter/benchmarks	10.731s

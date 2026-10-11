@@ -1,0 +1,66 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTCLI/small/interpreter         	     326	   1613880 ns/op
+BenchmarkAoTCLI/small/interpreter         	     301	   1563963 ns/op
+BenchmarkAoTCLI/small/interpreter         	     284	   1635623 ns/op
+BenchmarkAoTCLI/small/interpreter         	     288	   1589892 ns/op
+BenchmarkAoTCLI/small/interpreter         	     304	   1582818 ns/op
+BenchmarkAoTCLI/small/aot                 	     373	   1276749 ns/op
+BenchmarkAoTCLI/small/aot                 	     403	   1256665 ns/op
+BenchmarkAoTCLI/small/aot                 	     375	   1275918 ns/op
+BenchmarkAoTCLI/small/aot                 	     390	   1270968 ns/op
+BenchmarkAoTCLI/small/aot                 	     387	   1269173 ns/op
+BenchmarkAoTCLI/arithmetic/interpreter    	     260	   1915740 ns/op
+BenchmarkAoTCLI/arithmetic/interpreter    	     247	   1869300 ns/op
+BenchmarkAoTCLI/arithmetic/interpreter    	     250	   1909558 ns/op
+BenchmarkAoTCLI/arithmetic/interpreter    	     252	   1858334 ns/op
+BenchmarkAoTCLI/arithmetic/interpreter    	     244	   1928184 ns/op
+BenchmarkAoTCLI/arithmetic/aot            	     358	   1310970 ns/op
+BenchmarkAoTCLI/arithmetic/aot            	     375	   1328258 ns/op
+BenchmarkAoTCLI/arithmetic/aot            	     358	   1304596 ns/op
+BenchmarkAoTCLI/arithmetic/aot            	     357	   1322582 ns/op
+BenchmarkAoTCLI/arithmetic/aot            	     352	   1305003 ns/op
+BenchmarkAoTCLI/factorial/interpreter     	     292	   1603913 ns/op
+BenchmarkAoTCLI/factorial/interpreter     	     289	   1622599 ns/op
+BenchmarkAoTCLI/factorial/interpreter     	     286	   1599958 ns/op
+BenchmarkAoTCLI/factorial/interpreter     	     286	   1615385 ns/op
+BenchmarkAoTCLI/factorial/interpreter     	     283	   1585085 ns/op
+BenchmarkAoTCLI/factorial/aot             	     372	   1348313 ns/op
+BenchmarkAoTCLI/factorial/aot             	     352	   1333500 ns/op
+BenchmarkAoTCLI/factorial/aot             	     367	   1295977 ns/op
+BenchmarkAoTCLI/factorial/aot             	     340	   1271433 ns/op
+BenchmarkAoTCLI/factorial/aot             	     379	   1324033 ns/op
+BenchmarkAoTCLI/fibonacci/interpreter     	     193	   2359091 ns/op
+BenchmarkAoTCLI/fibonacci/interpreter     	     202	   2452613 ns/op
+BenchmarkAoTCLI/fibonacci/interpreter     	     192	   2480265 ns/op
+BenchmarkAoTCLI/fibonacci/interpreter     	     201	   2454359 ns/op
+BenchmarkAoTCLI/fibonacci/interpreter     	     198	   2400418 ns/op
+BenchmarkAoTCLI/fibonacci/aot             	     273	   1670243 ns/op
+BenchmarkAoTCLI/fibonacci/aot             	     272	   1532665 ns/op
+BenchmarkAoTCLI/fibonacci/aot             	     288	   1573090 ns/op
+BenchmarkAoTCLI/fibonacci/aot             	     283	   1705167 ns/op
+BenchmarkAoTCLI/fibonacci/aot             	     285	   1687391 ns/op
+BenchmarkAoTCLI/closures/interpreter      	     289	   1693958 ns/op
+BenchmarkAoTCLI/closures/interpreter      	     279	   1605800 ns/op
+BenchmarkAoTCLI/closures/interpreter      	     284	   1618332 ns/op
+BenchmarkAoTCLI/closures/interpreter      	     284	   1604684 ns/op
+BenchmarkAoTCLI/closures/interpreter      	     338	   1647617 ns/op
+BenchmarkAoTCLI/closures/aot              	     330	   1363399 ns/op
+BenchmarkAoTCLI/closures/aot              	     355	   1341061 ns/op
+BenchmarkAoTCLI/closures/aot              	     344	   1356959 ns/op
+BenchmarkAoTCLI/closures/aot              	     397	   1368238 ns/op
+BenchmarkAoTCLI/closures/aot              	     351	   1328050 ns/op
+BenchmarkAoTCLI/unicode/interpreter       	     200	   2340836 ns/op
+BenchmarkAoTCLI/unicode/interpreter       	     217	   2342125 ns/op
+BenchmarkAoTCLI/unicode/interpreter       	     204	   2310283 ns/op
+BenchmarkAoTCLI/unicode/interpreter       	     205	   2381180 ns/op
+BenchmarkAoTCLI/unicode/interpreter       	     198	   2363678 ns/op
+BenchmarkAoTCLI/unicode/aot               	     216	   2249465 ns/op
+BenchmarkAoTCLI/unicode/aot               	     211	   2225385 ns/op
+BenchmarkAoTCLI/unicode/aot               	     217	   2152920 ns/op
+BenchmarkAoTCLI/unicode/aot               	     220	   2185160 ns/op
+BenchmarkAoTCLI/unicode/aot               	     212	   2181258 ns/op
+PASS
+ok  	go/interpreter/benchmarks	39.387s

@@ -12,6 +12,8 @@ go vet ./...
 
 Run the programs in [getting started](getting-started.md) when changing behavior that affects the CLI or language examples.
 
+Compiler tests build native executables with the installed Go toolchain and compare their behavior with the interpreter. Run them on the host target, without cross compilation settings. Keep new language behavior covered in both execution paths. See [compilation](compilation.md) for the backend design and limits.
+
 ## Benchmarks
 
 Measure the checked language pipeline with:
@@ -25,6 +27,8 @@ Benchmarks validate their expected result before timing. Run them separately fro
 The lower-level pipeline and function benchmarks evaluate without the checker. Their complete-run cases do not represent the current CLI pipeline. The CLI file benchmark requires a built interpreter; its setup is in the [core performance report](performance.md).
 
 See the [core](performance.md), [string](strings-performance.md), and [static typing](types-performance.md) reports for workloads, measurements, allocation counts, and limits.
+
+The [AoT comparison](aot-performance.md) includes commands to prepare generated native benchmarks and compare them with the checked interpreter. Keep execution, complete CLI runs, and compile time as separate measurements.
 
 ## Historical measurements
 

@@ -1,0 +1,66 @@
+goos: linux
+goarch: amd64
+pkg: turtlscript-aot-bench/arithmetic
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTExecution 	  160680	      3062 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	  157251	      3077 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	  153480	      3069 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	  154676	      3061 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	  156948	      3061 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	turtlscript-aot-bench/arithmetic	2.562s
+goos: linux
+goarch: amd64
+pkg: turtlscript-aot-bench/closures
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTExecution 	  129051	      3660 ns/op	     288 B/op	       6 allocs/op
+BenchmarkAoTExecution 	  129788	      3659 ns/op	     288 B/op	       6 allocs/op
+BenchmarkAoTExecution 	  127557	      3654 ns/op	     288 B/op	       6 allocs/op
+BenchmarkAoTExecution 	  129549	      3667 ns/op	     288 B/op	       6 allocs/op
+BenchmarkAoTExecution 	  129658	      3649 ns/op	     288 B/op	       6 allocs/op
+PASS
+ok  	turtlscript-aot-bench/closures	2.558s
+goos: linux
+goarch: amd64
+pkg: turtlscript-aot-bench/factorial
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTExecution 	  485244	       938.1 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	  505990	       936.5 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	  504219	       936.6 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	  506817	       946.2 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	  505074	       936.1 ns/op	     104 B/op	       3 allocs/op
+PASS
+ok  	turtlscript-aot-bench/factorial	2.409s
+goos: linux
+goarch: amd64
+pkg: turtlscript-aot-bench/fibonacci
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTExecution 	    2649	    184126 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	    2624	    182155 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	    2636	    183612 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	    2618	    187119 ns/op	     104 B/op	       3 allocs/op
+BenchmarkAoTExecution 	    2588	    185218 ns/op	     104 B/op	       3 allocs/op
+PASS
+ok  	turtlscript-aot-bench/fibonacci	2.519s
+goos: linux
+goarch: amd64
+pkg: turtlscript-aot-bench/small
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTExecution 	16553607	        28.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	16521771	        29.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	16351159	        29.21 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	16848423	        29.02 ns/op	       0 B/op	       0 allocs/op
+BenchmarkAoTExecution 	16655220	        29.01 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	turtlscript-aot-bench/small	2.562s
+goos: linux
+goarch: amd64
+pkg: turtlscript-aot-bench/unicode
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTExecution 	    1000	    471889 ns/op	    1536 B/op	      32 allocs/op
+BenchmarkAoTExecution 	    1016	    471652 ns/op	    1536 B/op	      32 allocs/op
+BenchmarkAoTExecution 	    1016	    471438 ns/op	    1536 B/op	      32 allocs/op
+BenchmarkAoTExecution 	    1015	    471232 ns/op	    1536 B/op	      32 allocs/op
+BenchmarkAoTExecution 	    1016	    470984 ns/op	    1536 B/op	      32 allocs/op
+PASS
+ok  	turtlscript-aot-bench/unicode	2.638s

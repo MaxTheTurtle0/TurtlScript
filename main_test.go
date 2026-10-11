@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -68,5 +69,117 @@ func TestInteractiveExecution(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "3\n") || errOut.Len() != 0 {
 		t.Fatal(out.String(), errOut.String())
+	}
+}
+
+func TestCompilerCommands(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "source with spaces.turtls")
+	if err := os.WriteFile(source, []byte(`const add=fn(x:int,y:int)->int{x+y};print(add(40,2));`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"build", source},
+		{"build", "-o", filepath.Join(dir, "custom binary"), source},
+	} {
+		var out, errOut bytes.Buffer
+		if status := run(args, nil, &out, &errOut); status != 0 || out.Len() != 0 || errOut.Len() != 0 {
+			t.Fatalf("args=%v status=%d output=%q error=%q", args, status, out.String(), errOut.String())
+		}
+		binary := strings.TrimSuffix(source, ".turtls")
+		if len(args) == 4 {
+			binary = args[2]
+		}
+		output, err := exec.Command(binary).CombinedOutput()
+		if err != nil || string(output) != "42\n" {
+			t.Fatalf("binary output=%q error=%v", output, err)
+		}
+	}
+	for _, toFile := range []bool{false, true} {
+		var out, errOut bytes.Buffer
+		args := []string{"emit-go", source}
+		path := filepath.Join(dir, "generated.go")
+		if toFile {
+			args = []string{"emit-go", "-o", path, source}
+		}
+		if status := run(args, nil, &out, &errOut); status != 0 || errOut.Len() != 0 {
+			t.Fatalf("status=%d error=%q", status, errOut.String())
+		}
+		generated := out.Bytes()
+		if toFile {
+			if out.Len() != 0 {
+				t.Fatal("file emission wrote to stdout")
+			}
+			var err error
+			generated, err = os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if !bytes.Contains(generated, []byte("package main")) || !bytes.Contains(generated, []byte("func tsProgram")) {
+			t.Fatal("missing generated program")
+		}
+	}
+}
+
+func TestCompilerErrorsPreserveOutput(t *testing.T) {
+	for _, command := range []string{"build", "emit-go"} {
+		for _, source := range []string{`print("before");let x:int="bad";`, `print("before");let x=;`, `print("\q");`} {
+			dir := t.TempDir()
+			path, output := filepath.Join(dir, "source.turtls"), filepath.Join(dir, "output")
+			if err := os.WriteFile(path, []byte(source), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(output, []byte("keep"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var out, errOut bytes.Buffer
+			if status := run([]string{command, "-o", output, path}, nil, &out, &errOut); status != 1 || out.Len() != 0 || errOut.Len() == 0 {
+				t.Fatalf("status=%d output=%q error=%q", status, out.String(), errOut.String())
+			}
+			data, err := os.ReadFile(output)
+			if err != nil || string(data) != "keep" {
+				t.Fatalf("existing output=%q error=%v", data, err)
+			}
+		}
+	}
+}
+
+func TestCompilerProtectsSource(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "source.turtls")
+	const source = `print(42);`
+	if err := os.WriteFile(path, []byte(source), 0600); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(dir, "alias")
+	if err := os.Symlink(path, alias); err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{"build", "emit-go"} {
+		for _, output := range []string{path, alias} {
+			var out, errOut bytes.Buffer
+			if status := run([]string{command, "-o", output, path}, nil, &out, &errOut); status != 1 || !strings.Contains(errOut.String(), "overwrite the source") {
+				t.Fatalf("status=%d error=%q", status, errOut.String())
+			}
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != source {
+		t.Fatalf("source=%q error=%v", data, err)
+	}
+}
+
+func TestCompilerInvalidArguments(t *testing.T) {
+	for _, command := range []string{"build", "emit-go"} {
+		for _, args := range [][]string{
+			{command}, {command, "a.txt"}, {command, "a.turtls", "b.turtls"},
+			{command, "-unknown"}, {command, "-o"}, {command, filepath.Join(t.TempDir(), "missing.turtls")},
+		} {
+			var out, errOut bytes.Buffer
+			if status := run(args, nil, &out, &errOut); status != 1 || out.Len() != 0 || errOut.Len() == 0 {
+				t.Fatalf("args=%v status=%d output=%q error=%q", args, status, out.String(), errOut.String())
+			}
+		}
 	}
 }

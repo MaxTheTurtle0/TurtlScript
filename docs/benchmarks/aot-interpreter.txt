@@ -1,0 +1,66 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics     
+BenchmarkAoTInterpreter/small/execution         	 3539637	       132.6 ns/op	     200 B/op	       4 allocs/op
+BenchmarkAoTInterpreter/small/execution         	 3556564	       129.2 ns/op	     200 B/op	       4 allocs/op
+BenchmarkAoTInterpreter/small/execution         	 3735688	       128.2 ns/op	     200 B/op	       4 allocs/op
+BenchmarkAoTInterpreter/small/execution         	 3709161	       128.2 ns/op	     200 B/op	       4 allocs/op
+BenchmarkAoTInterpreter/small/execution         	 3739936	       128.9 ns/op	     200 B/op	       4 allocs/op
+BenchmarkAoTInterpreter/small/pipeline          	  152292	      3058 ns/op	    3496 B/op	      55 allocs/op
+BenchmarkAoTInterpreter/small/pipeline          	  151352	      3082 ns/op	    3496 B/op	      55 allocs/op
+BenchmarkAoTInterpreter/small/pipeline          	  150817	      3089 ns/op	    3496 B/op	      55 allocs/op
+BenchmarkAoTInterpreter/small/pipeline          	  150298	      3105 ns/op	    3496 B/op	      55 allocs/op
+BenchmarkAoTInterpreter/small/pipeline          	  150999	      3100 ns/op	    3496 B/op	      55 allocs/op
+BenchmarkAoTInterpreter/arithmetic/execution    	   53064	      8820 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkAoTInterpreter/arithmetic/execution    	   53649	      8680 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkAoTInterpreter/arithmetic/execution    	   54819	      8649 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkAoTInterpreter/arithmetic/execution    	   55284	      8641 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkAoTInterpreter/arithmetic/execution    	   55060	      8645 ns/op	    2232 B/op	     258 allocs/op
+BenchmarkAoTInterpreter/arithmetic/pipeline     	    2846	    155575 ns/op	  180872 B/op	     324 allocs/op
+BenchmarkAoTInterpreter/arithmetic/pipeline     	    2949	    162700 ns/op	  180872 B/op	     324 allocs/op
+BenchmarkAoTInterpreter/arithmetic/pipeline     	    2878	    155917 ns/op	  180872 B/op	     324 allocs/op
+BenchmarkAoTInterpreter/arithmetic/pipeline     	    2974	    162020 ns/op	  180872 B/op	     324 allocs/op
+BenchmarkAoTInterpreter/arithmetic/pipeline     	    2972	    157632 ns/op	  180872 B/op	     324 allocs/op
+BenchmarkAoTInterpreter/factorial/execution     	  201525	      2270 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkAoTInterpreter/factorial/execution     	  204247	      2283 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkAoTInterpreter/factorial/execution     	  202734	      2262 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkAoTInterpreter/factorial/execution     	  202512	      2300 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkAoTInterpreter/factorial/execution     	  201616	      2279 ns/op	    3312 B/op	      51 allocs/op
+BenchmarkAoTInterpreter/factorial/pipeline      	   80028	      5902 ns/op	    7864 B/op	     122 allocs/op
+BenchmarkAoTInterpreter/factorial/pipeline      	   79639	      5865 ns/op	    7864 B/op	     122 allocs/op
+BenchmarkAoTInterpreter/factorial/pipeline      	   80348	      5900 ns/op	    7864 B/op	     122 allocs/op
+BenchmarkAoTInterpreter/factorial/pipeline      	   80643	      5900 ns/op	    7864 B/op	     122 allocs/op
+BenchmarkAoTInterpreter/factorial/pipeline      	   80586	      5888 ns/op	    7864 B/op	     122 allocs/op
+BenchmarkAoTInterpreter/fibonacci/execution     	    1172	    399965 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkAoTInterpreter/fibonacci/execution     	    1183	    399570 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkAoTInterpreter/fibonacci/execution     	    1154	    402876 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkAoTInterpreter/fibonacci/execution     	    1167	    405436 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkAoTInterpreter/fibonacci/execution     	    1155	    405957 ns/op	  626056 B/op	    9581 allocs/op
+BenchmarkAoTInterpreter/fibonacci/pipeline      	    1128	    418320 ns/op	  630872 B/op	    9658 allocs/op
+BenchmarkAoTInterpreter/fibonacci/pipeline      	    1129	    433346 ns/op	  630872 B/op	    9658 allocs/op
+BenchmarkAoTInterpreter/fibonacci/pipeline      	    1108	    420576 ns/op	  630872 B/op	    9658 allocs/op
+BenchmarkAoTInterpreter/fibonacci/pipeline      	    1087	    430880 ns/op	  630872 B/op	    9658 allocs/op
+BenchmarkAoTInterpreter/fibonacci/pipeline      	    1114	    425361 ns/op	  630872 B/op	    9658 allocs/op
+BenchmarkAoTInterpreter/closures/execution      	   55636	      8606 ns/op	   13264 B/op	     262 allocs/op
+BenchmarkAoTInterpreter/closures/execution      	   55753	      8606 ns/op	   13264 B/op	     262 allocs/op
+BenchmarkAoTInterpreter/closures/execution      	   55759	      8522 ns/op	   13264 B/op	     262 allocs/op
+BenchmarkAoTInterpreter/closures/execution      	   55686	      8498 ns/op	   13264 B/op	     262 allocs/op
+BenchmarkAoTInterpreter/closures/execution      	   55527	      8594 ns/op	   13264 B/op	     262 allocs/op
+BenchmarkAoTInterpreter/closures/pipeline       	    9640	     44770 ns/op	   65448 B/op	     534 allocs/op
+BenchmarkAoTInterpreter/closures/pipeline       	    9114	     44489 ns/op	   65448 B/op	     534 allocs/op
+BenchmarkAoTInterpreter/closures/pipeline       	   10710	     44862 ns/op	   65448 B/op	     534 allocs/op
+BenchmarkAoTInterpreter/closures/pipeline       	    8965	     44842 ns/op	   65448 B/op	     534 allocs/op
+BenchmarkAoTInterpreter/closures/pipeline       	   10336	     49915 ns/op	   65448 B/op	     534 allocs/op
+BenchmarkAoTInterpreter/unicode/execution       	    1012	    474064 ns/op	    5320 B/op	     355 allocs/op
+BenchmarkAoTInterpreter/unicode/execution       	    1014	    475535 ns/op	    5320 B/op	     355 allocs/op
+BenchmarkAoTInterpreter/unicode/execution       	    1016	    473400 ns/op	    5320 B/op	     355 allocs/op
+BenchmarkAoTInterpreter/unicode/execution       	    1016	    475435 ns/op	    5320 B/op	     355 allocs/op
+BenchmarkAoTInterpreter/unicode/execution       	     876	    480092 ns/op	    5320 B/op	     355 allocs/op
+BenchmarkAoTInterpreter/unicode/pipeline        	     831	    579297 ns/op	   95968 B/op	    1760 allocs/op
+BenchmarkAoTInterpreter/unicode/pipeline        	     798	    596028 ns/op	   95968 B/op	    1760 allocs/op
+BenchmarkAoTInterpreter/unicode/pipeline        	     825	    608517 ns/op	   95968 B/op	    1760 allocs/op
+BenchmarkAoTInterpreter/unicode/pipeline        	     786	    592480 ns/op	   95968 B/op	    1760 allocs/op
+BenchmarkAoTInterpreter/unicode/pipeline        	     794	    617218 ns/op	   95968 B/op	    1760 allocs/op
+PASS
+ok  	go/interpreter/benchmarks	32.228s
