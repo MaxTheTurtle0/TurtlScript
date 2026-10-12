@@ -18,7 +18,7 @@ Go callers can set `env.DisableJIT = true` before `evaluator.Eval`. This setting
 
 Parameters, captured values, and results can be integers, booleans, or `null`. Native functions support local declarations, replacement of local bindings, constants, integer arithmetic and comparisons, scalar equality, truthiness, short-circuit operators, branches, and explicit or implicit returns. Direct self-recursion stays native and keeps the 256-call depth limit.
 
-Captured values are read from the closure's environment on every call. Replacing a captured integer or boolean remains visible. Local declaration slots track whether their initializer has run, preserving reads of an outer binding before local shadowing. Recursive function bindings are checked before execution so replacing the original function still changes what recursive references call.
+Captured values are read from the closure's environment on every call. Replacing a captured integer or boolean remains visible. Local declaration slots track whether their initializer has run, preserving reads of an outer binding before local shadowing. If an unset local needs an outer value with an unsupported or different type, the call restarts in the AST evaluator. Compiled code has no external effects, so restarting preserves evaluation order and runtime errors. Recursive function bindings are checked before execution so replacing the original function still changes what recursive references call.
 
 Functions using strings, built-ins, other user functions, function-valued arguments or results, or nested function literals use AST execution. Functions exceeding 4,096 AST nodes also stay interpreted. Compilation failures and runtime type guards fall back to the AST. Each closure attempts compilation once.
 

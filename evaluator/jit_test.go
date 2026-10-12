@@ -92,6 +92,8 @@ func TestJITScalarParity(t *testing.T) {
 		{"captured bool", `let b=true;let f=fn(n:int)->bool{b&&(n>0)};`, "f(1)", []string{"f(-1)", "let b=false;f(1)"}},
 		{"late shadow", `let x=10;let f=fn(n:int)->int{let old=x;let x=n;old+x};`, "f(1)", []string{"f(2)", "let x=20;f(2)"}},
 		{"conditional shadow", `let x=10;let f=fn(b:bool)->int{if b{let x=20;x}else{x}};`, "f(true)", []string{"f(false)", "f(true)", "let x=30;f(false)"}},
+		{"recursive shadow fallback", `let x=false;let f=fn(n:int)->bool{if n==0{let x=1;!x}else{if n==1{!x}else{f(n-1)}}};`, "f(0)", []string{"f(1)", "f(2)", "f(5)", "f(256)"}},
+		{"parameter mutation before fallback", `let x=false;let f=fn(b:bool)->bool{let b=!b;if b{let x=1;!x}else{!x}};`, "f(false)", []string{"f(true)", "f(false)"}},
 		{"branch declarations", `let f=fn(b:bool)->int{if b{let x=1}else{let x=2};if b{let x=x+10}else{let x=x+20};x};`, "f(true)", []string{"f(true)", "f(false)"}},
 		{"snapshot operand", `let f=fn(n:int)->int{let x=1;x+if true{let x=n;x}};`, "f(1)", []string{"f(10)", "f(-10)"}},
 		{"nested return", `let f=fn(b:bool)->int{3+if b{return 5}else{2};9};`, "f(false)", []string{"f(true)", "f(false)"}},
@@ -121,6 +123,84 @@ func TestJITScalarParity(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) { compareJIT(t, test.source, test.warm, test.calls) })
+	}
+}
+
+func TestJITConditionalShadowFallback(t *testing.T) {
+	if !evaluator.JITAvailable() {
+		t.Skip("native compiler unavailable on this host")
+	}
+	for _, test := range []struct {
+		name, source, want string
+	}{
+		{"boolean", `let x=false;let f=fn(b:bool)->bool{if b{let x=1;!x}else{!x}};`, "true"},
+		{"null", `let x=null;let f=fn(b:bool)->bool{if b{let x=1;!x}else{!x}};`, "true"},
+		{"string", `let x="outer";let f=fn(b:bool)->bool{if b{let x=1;!x}else{!x}};`, "false"},
+		{"function", `let x=fn()->int{1};let f=fn(b:bool)->bool{if b{let x=1;!x}else{!x}};`, "false"},
+		{"builtin", `let f=fn(b:bool)->bool{if b{let len=1;!len}else{!len}};`, "false"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			env, function := jitEnvironment(t, test.source, false)
+			astEnv, _ := jitEnvironment(t, test.source, true)
+			warm := parseJIT(t, "f(true)", false)
+			for range evaluator.JITThreshold {
+				if result := evaluator.Eval(warm, env); result.Inspect() != "false" {
+					t.Fatal(result.Inspect())
+				}
+			}
+			assertNative(t, function)
+			// The local-only path stays native. An unset local that needs
+			// another kind or a builtin restarts in the AST evaluator.
+			args := object.NewEnclosedEnvironment(env)
+			args.CallDepth = 1
+			args.Set("b", evaluator.FALSE)
+			if result, ok := function.JIT.Code.Call(function, args); ok {
+				t.Fatalf("outer lookup executed natively: %s", result.Inspect())
+			}
+			args.Set("b", evaluator.TRUE)
+			if result, ok := function.JIT.Code.Call(function, args); !ok || result.Inspect() != "false" {
+				t.Fatal("local path stopped executing natively")
+			}
+			for _, call := range []string{"f(false)", "f(true)", "f(false)"} {
+				program := parseJIT(t, call, false)
+				got := evaluator.Eval(program, env)
+				want := evaluator.Eval(program, astEnv)
+				if got.Type() != want.Type() || got.Inspect() != want.Inspect() {
+					t.Fatalf("%s: JIT %s, AST %s", call, got.Inspect(), want.Inspect())
+				}
+				if call == "f(false)" && got.Inspect() != test.want {
+					t.Fatal(got.Inspect())
+				}
+			}
+		})
+	}
+}
+
+func TestJITShadowCaptureTypeRestored(t *testing.T) {
+	if !evaluator.JITAvailable() {
+		t.Skip("native compiler unavailable on this host")
+	}
+	source := `let x=10;let f=fn(b:bool)->int{if b{let x=20;x}else{x+0}};`
+	env, function := jitEnvironment(t, source, false)
+	astEnv, _ := jitEnvironment(t, source, true)
+	for _, scope := range []*object.Environment{env, astEnv} {
+		scope.Set("x", &object.String{Value: "wrong type"})
+	}
+	warm := parseJIT(t, "f(true)", false)
+	for range evaluator.JITThreshold {
+		if got := evaluator.Eval(warm, env); got.Inspect() != "20" {
+			t.Fatal(got.Inspect())
+		}
+	}
+	assertNative(t, function)
+	call := parseJIT(t, "f(false)", false)
+	for _, value := range []object.Object{&object.String{Value: "wrong type"}, &object.Integer{Value: 10}, &object.Integer{Value: 30}} {
+		env.Set("x", value)
+		astEnv.Set("x", value)
+		got, want := evaluator.Eval(call, env), evaluator.Eval(call, astEnv)
+		if got.Type() != want.Type() || got.Inspect() != want.Inspect() {
+			t.Fatalf("capture %s: JIT %s, AST %s", value.Inspect(), got.Inspect(), want.Inspect())
+		}
 	}
 }
 

@@ -16,6 +16,10 @@ import (
 
 const MaxCallDepth = 256
 
+// Language errors use positive status codes. This status requests AST execution
+// when a native path cannot represent an outer binding's value or type.
+const fallbackStatus int64 = -1
+
 var supported = sync.OnceValue(func() bool {
 	r, err := newRuntime()
 	if err != nil {
@@ -147,6 +151,8 @@ func (c *code) Call(function *object.Function, env *object.Environment) (object.
 		return nil, false
 	}
 	if status := result[1]; status != 0 {
+		// fallbackStatus encodes as MaxUint64, outside the language error table.
+		// Compiled functions have no external effects, so the caller can retry.
 		if status > uint64(len(c.errors)) {
 			return nil, false
 		}

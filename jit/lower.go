@@ -200,6 +200,12 @@ func (g *generator) failure(message string) {
 	g.emit(opReturn)
 }
 
+func (g *generator) fallback() {
+	g.constant(0)
+	g.constant(fallbackStatus)
+	g.emit(opReturn)
+}
+
 // guard consumes an i32 condition and returns a language error if it is true.
 func (g *generator) guard(message string) {
 	g.emit(opIf, wasmEmpty)
@@ -287,7 +293,9 @@ func (g *generator) identifier(name string) types.Kind {
 		if captured && captureKind == v.kind {
 			g.get(index)
 		} else {
-			g.failure("identifier not found: " + name)
+			// An unset local can resolve to another kind, an unsupported
+			// capture, or a builtin. Let the AST resolve the original lookup.
+			g.fallback()
 			g.constant(0)
 		}
 		g.emit(opElse)
