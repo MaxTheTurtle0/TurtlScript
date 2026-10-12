@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
 
 type ObjectType string
@@ -61,6 +63,19 @@ type Function struct {
 	Body       *ast.BlockStatement
 	Env        *Environment
 	Signature  *types.Type
+	JIT        FunctionJIT
+}
+
+// FunctionCode can decline a call when runtime bindings no longer match the
+// assumptions used during compilation. The evaluator then executes the AST.
+type FunctionCode interface {
+	Call(*Function, *Environment) (Object, bool)
+}
+
+type FunctionJIT struct {
+	Calls       atomic.Uint32
+	CompileOnce sync.Once
+	Code        FunctionCode // Read only after CompileOnce.Do completes.
 }
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }

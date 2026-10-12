@@ -49,10 +49,16 @@ func checkedAoTProgram(tb testing.TB, source string) *ast.Program {
 
 func validateAoTResult(tb testing.TB, program *ast.Program, want int64) {
 	tb.Helper()
-	result := evaluator.Eval(program, object.NewEnvironment())
+	result := evaluator.Eval(program, aotInterpreterEnvironment())
 	if integer, ok := result.(*object.Integer); !ok || integer.Value != want {
 		tb.Fatalf("got=%v want=%d", result, want)
 	}
+}
+
+func aotInterpreterEnvironment() *object.Environment {
+	env := object.NewEnvironment()
+	env.DisableJIT = true
+	return env
 }
 
 // Execution alone uses an already parsed and checked AST. Pipeline includes a
@@ -65,7 +71,7 @@ func BenchmarkAoTInterpreter(b *testing.B) {
 			b.Run("execution", func(b *testing.B) {
 				b.ReportAllocs()
 				for i := 0; i < b.N; i++ {
-					objectSink = evaluator.Eval(program, object.NewEnvironment())
+					objectSink = evaluator.Eval(program, aotInterpreterEnvironment())
 				}
 			})
 			b.Run("pipeline", func(b *testing.B) {
@@ -73,7 +79,7 @@ func BenchmarkAoTInterpreter(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					program := parser.New(lexer.New(workload.source)).ParseProgram()
 					checkedSink, _ = checker.NewSession().Check(program)
-					objectSink = evaluator.Eval(program, object.NewEnvironment())
+					objectSink = evaluator.Eval(program, aotInterpreterEnvironment())
 				}
 			})
 		})
@@ -155,7 +161,7 @@ func BenchmarkAoTCLI(b *testing.B) {
 			name, binary string
 			args         []string
 		}{
-			{"interpreter", interpreter, []string{filepath.Join(path, "source.turtls")}},
+			{"interpreter", interpreter, []string{"-no-jit", filepath.Join(path, "source.turtls")}},
 			{"aot", filepath.Join(path, "program"), nil},
 		} {
 			b.Run(workload.name+"/"+engine.name, func(b *testing.B) {

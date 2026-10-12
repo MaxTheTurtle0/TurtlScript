@@ -20,17 +20,28 @@ import (
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, in io.Reader, out, errOut io.Writer) int {
+	if len(args) > 0 && (args[0] == "build" || args[0] == "emit-go") {
+		return runCompiler(args[0], args[1:], out, errOut)
+	}
+	flags := flag.NewFlagSet("turtls", flag.ContinueOnError)
+	flags.SetOutput(errOut)
+	disableJIT := flags.Bool("no-jit", false, "disable native JIT compilation")
+	flags.Usage = func() { printUsage(errOut) }
+	if err := flags.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 1
+	}
+	args = flags.Args()
 	if len(args) == 0 {
 		fmt.Fprintln(out, "TurtlScript")
 		fmt.Fprintln(out, "Type .quit to quit.")
-		if err := repl.Start(in, out); err != nil {
+		if err := repl.StartWithOptions(in, out, repl.Options{DisableJIT: *disableJIT}); err != nil {
 			fmt.Fprintln(errOut, err)
 			return 1
 		}
 		return 0
-	}
-	if args[0] == "build" || args[0] == "emit-go" {
-		return runCompiler(args[0], args[1:], out, errOut)
 	}
 	if len(args) != 1 {
 		printUsage(errOut)
@@ -57,6 +68,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	env := object.NewEnvironment()
 	env.Output = out
+	env.DisableJIT = *disableJIT
 	if result := evaluator.Eval(program, env); result.Type() == object.ERROR_OBJ {
 		fmt.Fprintln(errOut, result.Inspect())
 		return 1
@@ -65,7 +77,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) int {
 }
 
 func printUsage(out io.Writer) {
-	fmt.Fprintln(out, "Usage: turtls [file.turtls]")
+	fmt.Fprintln(out, "Usage: turtls [-no-jit] [file.turtls]")
 	fmt.Fprintln(out, "       turtls build [-o executable] file.turtls")
 	fmt.Fprintln(out, "       turtls emit-go [-o file.go] file.turtls")
 }

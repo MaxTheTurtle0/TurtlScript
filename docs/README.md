@@ -1,11 +1,12 @@
 # TurtlScript documentation
 
-TurtlScript is a statically typed programming language with an interpreter, an interactive REPL, and an ahead-of-time compiler. Both execution paths use the same syntax and type checker.
+TurtlScript is a statically typed programming language with an interpreter, native JIT compilation, an interactive REPL, and an ahead-of-time compiler. These execution paths use the same syntax and type checker.
 
 ## Run programs
 
 - [Getting started](getting-started.md) covers building the command, using the REPL, and running or compiling a file.
 - [Ahead-of-time compilation](compilation.md) explains native builds, generated Go, and backend limits.
+- [JIT compilation](jit.md) covers automatic native compilation, fallback, supported platforms, and benchmarks.
 
 ## Language
 

@@ -1,0 +1,66 @@
+goos: linux
+goarch: amd64
+pkg: go/interpreter/benchmarks
+cpu: AMD Ryzen 7 8745HS w/ Radeon 780M Graphics
+BenchmarkJIT/fibonacci/ast     	     588	    414021 ns/op	  676920 B/op	    9579 allocs/op
+BenchmarkJIT/fibonacci/ast     	     525	    469351 ns/op	  676921 B/op	    9579 allocs/op
+BenchmarkJIT/fibonacci/ast     	     547	    429262 ns/op	  676921 B/op	    9579 allocs/op
+BenchmarkJIT/fibonacci/ast     	     561	    411990 ns/op	  676920 B/op	    9579 allocs/op
+BenchmarkJIT/fibonacci/ast     	     578	    417203 ns/op	  676920 B/op	    9579 allocs/op
+BenchmarkJIT/fibonacci/native  	   31183	      7815 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/fibonacci/native  	   31436	      7667 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/fibonacci/native  	   31818	      7575 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/fibonacci/native  	   31851	      7613 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/fibonacci/native  	   31857	      7487 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/fibonacci/compile 	    1087	    214179 ns/op	  358003 B/op	     523 allocs/op
+BenchmarkJIT/fibonacci/compile 	    1146	    215753 ns/op	  357966 B/op	     523 allocs/op
+BenchmarkJIT/fibonacci/compile 	    1143	    217236 ns/op	  358037 B/op	     523 allocs/op
+BenchmarkJIT/fibonacci/compile 	    1118	    215321 ns/op	  357966 B/op	     523 allocs/op
+BenchmarkJIT/fibonacci/compile 	    1156	    211805 ns/op	  357966 B/op	     523 allocs/op
+BenchmarkJIT/factorial/ast     	   98364	      2297 ns/op	    3344 B/op	      49 allocs/op
+BenchmarkJIT/factorial/ast     	  100969	      2305 ns/op	    3344 B/op	      49 allocs/op
+BenchmarkJIT/factorial/ast     	  100677	      2317 ns/op	    3344 B/op	      49 allocs/op
+BenchmarkJIT/factorial/ast     	  100674	      2312 ns/op	    3344 B/op	      49 allocs/op
+BenchmarkJIT/factorial/ast     	   98340	      2286 ns/op	    3344 B/op	      49 allocs/op
+BenchmarkJIT/factorial/native  	 1430706	       177.6 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/factorial/native  	 1436668	       167.3 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/factorial/native  	 1431086	       169.1 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/factorial/native  	 1429830	       169.5 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/factorial/native  	 1417112	       173.5 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/factorial/compile 	    1218	    214708 ns/op	  344285 B/op	     465 allocs/op
+BenchmarkJIT/factorial/compile 	    1281	    198046 ns/op	  344284 B/op	     465 allocs/op
+BenchmarkJIT/factorial/compile 	    1281	    192923 ns/op	  344284 B/op	     465 allocs/op
+BenchmarkJIT/factorial/compile 	    1244	    196050 ns/op	  344283 B/op	     465 allocs/op
+BenchmarkJIT/factorial/compile 	    1254	    194815 ns/op	  344285 B/op	     465 allocs/op
+BenchmarkJIT/arithmetic/ast    	   24493	      9713 ns/op	    2248 B/op	     258 allocs/op
+BenchmarkJIT/arithmetic/ast    	   24620	      9737 ns/op	    2248 B/op	     258 allocs/op
+BenchmarkJIT/arithmetic/ast    	   24379	     10184 ns/op	    2248 B/op	     258 allocs/op
+BenchmarkJIT/arithmetic/ast    	   23662	      9844 ns/op	    2248 B/op	     258 allocs/op
+BenchmarkJIT/arithmetic/ast    	   24836	      9553 ns/op	    2248 B/op	     258 allocs/op
+BenchmarkJIT/arithmetic/native 	  328831	       664.8 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/arithmetic/native 	  329668	       640.5 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/arithmetic/native 	  392886	       656.1 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/arithmetic/native 	  335480	       653.0 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/arithmetic/native 	  340605	       663.8 ns/op	     240 B/op	       5 allocs/op
+BenchmarkJIT/arithmetic/compile         	      19	  12453327 ns/op	 7324956 B/op	   12662 allocs/op
+BenchmarkJIT/arithmetic/compile         	      18	  12133635 ns/op	 7324986 B/op	   12663 allocs/op
+BenchmarkJIT/arithmetic/compile         	      20	  12692444 ns/op	 7324986 B/op	   12663 allocs/op
+BenchmarkJIT/arithmetic/compile         	      21	  12231180 ns/op	 7324971 B/op	   12663 allocs/op
+BenchmarkJIT/arithmetic/compile         	      21	  12822537 ns/op	 7324942 B/op	   12662 allocs/op
+BenchmarkJIT/small_closure/ast          	 2296339	       104.5 ns/op	     208 B/op	       3 allocs/op
+BenchmarkJIT/small_closure/ast          	 2296598	       104.6 ns/op	     208 B/op	       3 allocs/op
+BenchmarkJIT/small_closure/ast          	 2301010	       103.8 ns/op	     208 B/op	       3 allocs/op
+BenchmarkJIT/small_closure/ast          	 2293723	       103.7 ns/op	     208 B/op	       3 allocs/op
+BenchmarkJIT/small_closure/ast          	 2318280	       103.9 ns/op	     208 B/op	       3 allocs/op
+BenchmarkJIT/small_closure/native       	 1646359	       142.2 ns/op	     256 B/op	       5 allocs/op
+BenchmarkJIT/small_closure/native       	 1660250	       143.8 ns/op	     256 B/op	       5 allocs/op
+BenchmarkJIT/small_closure/native       	 1648194	       142.6 ns/op	     256 B/op	       5 allocs/op
+BenchmarkJIT/small_closure/native       	 1681244	       145.6 ns/op	     256 B/op	       5 allocs/op
+BenchmarkJIT/small_closure/native       	 1667378	       141.8 ns/op	     256 B/op	       5 allocs/op
+BenchmarkJIT/small_closure/compile      	    1498	    170629 ns/op	  334491 B/op	     352 allocs/op
+BenchmarkJIT/small_closure/compile      	    1520	    173888 ns/op	  334491 B/op	     352 allocs/op
+BenchmarkJIT/small_closure/compile      	    1569	    156464 ns/op	  334490 B/op	     352 allocs/op
+BenchmarkJIT/small_closure/compile      	    1617	    161473 ns/op	  334490 B/op	     352 allocs/op
+BenchmarkJIT/small_closure/compile      	    1540	    154885 ns/op	  334490 B/op	     352 allocs/op
+PASS
+ok  	go/interpreter/benchmarks	19.208s
