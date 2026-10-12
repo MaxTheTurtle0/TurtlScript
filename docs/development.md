@@ -1,6 +1,6 @@
 # Development
 
-Use Go 1.27.2 or newer and run commands from the repository root. The project uses the Go standard library and has no external module dependencies.
+TurtlScript's interpreter, compiler, and shared language frontend are written in Go. Use Go 1.27.2 or newer and run commands from the repository root. The project uses the Go standard library and has no external module dependencies.
 
 ## Validation
 
@@ -24,7 +24,7 @@ go test ./benchmarks -run '^$' -bench '^BenchmarkStaticTypes$' -benchmem -bencht
 
 Benchmarks validate their expected result before timing. Run them separately from tests, fuzzing, builds, and profiling. Compare repeated samples with the same toolchain and machine.
 
-The lower-level pipeline and function benchmarks evaluate without the checker. Their complete-run cases do not represent the current CLI pipeline. The CLI file benchmark requires a built interpreter; its setup is in the [core performance report](performance.md).
+The lower-level pipeline and function benchmarks evaluate without the checker. Their complete-run cases do not represent the current CLI pipeline. The CLI file benchmark requires a built `turtls` command; its setup is in the [core performance report](performance.md).
 
 See the [core](performance.md), [string](strings-performance.md), and [static typing](types-performance.md) reports for workloads, measurements, allocation counts, and limits.
 
@@ -32,7 +32,7 @@ The [AoT comparison](aot-performance.md) includes commands to prepare generated 
 
 ## Historical measurements
 
-The recorded reports use Go 1.24.4. The project now requires Go 1.27.2, so running benchmarks from the current checkout uses a different toolchain.
+The core, string, and static typing reports use Go 1.24.4. The AoT comparison uses Go 1.27.2, which is also the project's current minimum version.
 
 To run the recorded workloads with the original toolchain, create a separate checkout of the final static typing revision:
 

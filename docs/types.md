@@ -1,6 +1,6 @@
 # Types and constants
 
-TurtlScript checks each file before execution and each REPL entry before evaluating it. Bindings keep fixed types, and function arguments and returns must match their inferred or annotated signatures. Annotations are optional when inference can resolve a type.
+The interpreter and compiler check each file before execution or code generation. The REPL checks each entry before evaluating it. Bindings keep fixed types, and function arguments and returns must match their inferred or annotated signatures. Annotations are optional when inference can resolve a type.
 
 See the [language guide](language.md) for general syntax, operators, and strings.
 
@@ -59,8 +59,10 @@ Only `false` and `null` are false in a condition. Numeric operators require inte
 
 ## Errors and embedding
 
-A type error prevents the entire file or REPL entry from executing. Runtime errors such as division by zero, invalid slice bounds, and excessive recursion remain possible. Earlier effects in an entry that hits a runtime error remain visible. The REPL records types only for bindings that actually exist afterward.
+A type error prevents a file from executing or compiling, and prevents a REPL entry from executing. Runtime errors such as division by zero, invalid slice bounds, and excessive recursion remain possible in both execution paths. Earlier effects in an entry that hits a runtime error remain visible. The REPL records types only for bindings that actually exist afterward.
 
 Go callers using the low-level `evaluator.Eval` API must run `checker.NewSession().Check(program)` first to get the static guarantees and typed evaluation. For persistent environments, call `Session.Commit(result, env)` after evaluation, including after a runtime error. The raw evaluator retains runtime checks and protects constants even when the checker is bypassed.
 
-Successful checking records resolved signatures on function AST nodes. Typed integer evaluation keeps intermediate arithmetic values unboxed and evaluates operands once in source order. The integer path keeps runtime guards for values supplied by Go callers.
+Successful checking records resolved signatures on function AST nodes. The interpreter keeps intermediate integer values unboxed and evaluates operands once in source order. Its integer path keeps runtime guards for values supplied by Go callers.
+
+Go callers can use `compiler.Generate(program)` to emit a complete Go program or `compiler.Build(ctx, program, output)` to build an executable. Both APIs run static checking themselves. See [compilation](compilation.md) for the backend's use of type information and its limits.

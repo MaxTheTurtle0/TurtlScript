@@ -1,5 +1,7 @@
 # Getting started
 
+TurtlScript programs can run through the interpreter or compile to standalone executables. The `turtls` command also includes an interactive REPL.
+
 Use Go 1.27.2 or newer. Install it from the [Go downloads page](https://go.dev/dl/), then run the commands below from the repository root.
 
 ## Interactive REPL
@@ -10,7 +12,7 @@ go run .
 
 Enter an expression to see its value. Type `.quit` to exit. The REPL keeps bindings, types, and constants between entries. Each entry must fit on one line; use a file for a program that spans multiple lines.
 
-## Run a file
+## Interpret a file
 
 ```sh
 go run . examples/functions.turtls
