@@ -1,0 +1,24 @@
+File: fibonacci.test
+Build ID: 989ba05fe540b77431f43a8753c1deaa37558b4f
+Type: cpu
+Time: 2026-10-12 01:23:14 CEST
+Duration: 3.90s, Total samples = 3890ms (99.87%)
+Showing nodes accounting for 2700ms, 69.41% of 3890ms total
+Dropped 49 nodes (cum <= 19.45ms)
+Showing top 15 nodes out of 108
+      flat  flat%   sum%        cum   cum%
+     790ms 20.31% 20.31%     3870ms 99.49%  turtlscript-aot-bench/fibonacci.tsFunction0
+     440ms 11.31% 31.62%      750ms 19.28%  turtlscript-aot-bench/fibonacci.(*scope).get
+     200ms  5.14% 36.76%      240ms  6.17%  runtime.typePointers.next
+     170ms  4.37% 41.13%     3870ms 99.49%  turtlscript-aot-bench/fibonacci.call
+     150ms  3.86% 44.99%      150ms  3.86%  internal/runtime/maps.memHashAES
+     140ms  3.60% 48.59%      410ms 10.54%  runtime.scanObject
+     130ms  3.34% 51.93%      410ms 10.54%  runtime.mallocgcSmallScanNoHeaderSC5
+     110ms  2.83% 54.76%      270ms  6.94%  internal/runtime/maps.(*Map).getWithoutKeySmallFastStr
+     110ms  2.83% 57.58%      510ms 13.11%  runtime.mallocgcSmallScanSlowPath
+     100ms  2.57% 60.15%     1170ms 30.08%  turtlscript-aot-bench/fibonacci.(*scope).set
+      90ms  2.31% 62.47%      130ms  3.34%  runtime.tryDeferToSpanScan
+      80ms  2.06% 64.52%       80ms  2.06%  runtime.(*bucket).mp
+      70ms  1.80% 66.32%      130ms  3.34%  runtime.scanblock
+      60ms  1.54% 67.87%      400ms 10.28%  runtime.mallocgcSmallScanNoHeaderSC6
+      60ms  1.54% 69.41%       60ms  1.54%  runtime.memclrNoHeapPointers

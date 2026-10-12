@@ -1,0 +1,661 @@
+--- a/compiler/compiler.go
++++ b/compiler/compiler.go
+@@ -10,6 +10,7 @@
+ 	"go/format"
+ 	"go/interpreter/ast"
+ 	"go/interpreter/checker"
++	"go/interpreter/object"
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
+@@ -30,11 +31,12 @@
+ 		return nil, fmt.Errorf("Type errors:\n\t%s", strings.Join(errors, "\n\t"))
+ 	}
+ 	g := &generator{}
+-	body := &bodyGenerator{generator: g}
++	body := &bodyGenerator{generator: g, layout: newLayout(nil, nil, program.Statements)}
++	body.frame("nil")
+ 	last := body.block(program.Statements)
+ 	body.line("return %s", last)
+ 	source := strings.Replace(runtimeSource, "package rt", "package main", 1)
+-	source += "\nfunc tsProgram(env *scope) value {\n" + body.String() + "}\n"
++	source += "\nfunc tsProgram(output io.Writer, depth int) value {\n" + body.String() + "}\n"
+ 	source += strings.Join(g.functions, "\n")
+ 	source += "\nfunc main() { run(tsProgram) }\n"
+ 	formatted, err := format.Source([]byte(source))
+@@ -97,6 +99,7 @@
+ 	*generator
+ 	strings.Builder
+ 	nextValue int
++	layout    *layout
+ }
+ 
+ func (g *bodyGenerator) line(format string, args ...any) {
+@@ -111,20 +114,35 @@
+ 	return name
+ }
+ 
++func (g *bodyGenerator) scalar(expression string) string {
++	name := fmt.Sprintf("i%d", g.nextValue)
++	g.nextValue++
++	g.line("%s := %s", name, expression)
++	g.line("_ = %s", name)
++	return name
++}
++
++func (g *bodyGenerator) frame(parent string) {
++	g.line("var storage [%d]value", len(g.layout.slots))
++	g.line("env := &scope{slots: storage[:], parent: %s}", parent)
++	// Empty functions need no environment reads, but still share this prologue.
++	g.line("_ = env")
++}
++
+ func (g *bodyGenerator) block(statements []ast.Statement) string {
+-	last := "value{}"
++	last := "nullValue"
+ 	for _, statement := range statements {
+ 		switch node := statement.(type) {
+ 		case *ast.ExpressionStatement:
+ 			last = g.expression(node.Expression)
+ 		case *ast.LetStatement:
+ 			v := g.expression(node.Value)
+-			g.temporary(fmt.Sprintf("env.set(%q, %s, %t)", node.Name.Value, v, node.Constant))
+-			last = "value{}"
++			g.line("env.slots[%d] = %s", g.layout.slots[node.Name.Value], v)
++			last = "nullValue"
+ 		case *ast.ReturnStatement:
+ 			v := g.expression(node.ReturnValue)
+-			g.line("return returned(%s)", v)
+-			last = "value{}"
++			g.line("return %s", v)
++			return "nullValue"
+ 		}
+ 	}
+ 	return last
+@@ -133,19 +151,32 @@
+ func (g *bodyGenerator) expression(expression ast.Expression) string {
+ 	switch node := expression.(type) {
+ 	case *ast.IntegerLiteral:
+-		return g.temporary(fmt.Sprintf("value{kind: intKind, integer: %d}", node.Value))
++		return fmt.Sprintf("value{kind: intKind, integer: int64(%d)}", node.Value)
+ 	case *ast.StringLiteral:
+-		return g.temporary("value{kind: stringKind, text: " + strconv.Quote(node.Value) + "}")
++		return "value{kind: stringKind, text: " + strconv.Quote(node.Value) + "}"
+ 	case *ast.Boolean:
+-		return g.temporary(fmt.Sprintf("boolean(%t)", node.Value))
++		return fmt.Sprintf("boolean(%t)", node.Value)
+ 	case *ast.NullLiteral:
+-		return g.temporary("value{}")
++		return "nullValue"
+ 	case *ast.Identifier:
+-		return g.temporary(fmt.Sprintf("env.get(%q)", node.Value))
++		return g.identifier(node.Value)
+ 	case *ast.PrefixExpression:
++		if node.IntegerOperand {
++			return "value{kind: intKind, integer: " + g.integer(node) + "}"
++		}
+ 		right := g.expression(node.Right)
+ 		return g.temporary(fmt.Sprintf("prefix(%q, %s)", node.Operator, right))
+ 	case *ast.InfixExpression:
++		if node.IntegerOperands {
++			switch node.Operator {
++			case "==", "!=", "<", "<=", ">", ">=":
++				left := g.integer(node.Left)
++				right := g.integer(node.Right)
++				return g.temporary(fmt.Sprintf("boolean(%s %s %s)", left, node.Operator, right))
++			default:
++				return "value{kind: intKind, integer: " + g.integer(node) + "}"
++			}
++		}
+ 		left := g.expression(node.Left)
+ 		if node.Operator == "&&" || node.Operator == "||" {
+ 			result := g.temporary("boolean(truth(" + left + "))")
+@@ -163,7 +194,7 @@
+ 		return g.temporary(fmt.Sprintf("infix(%q, %s, %s)", node.Operator, left, right))
+ 	case *ast.IfExpression:
+ 		condition := g.expression(node.Condition)
+-		result := g.temporary("value{}")
++		result := g.temporary("nullValue")
+ 		g.line("if truth(%s) {", condition)
+ 		last := g.block(node.Consequence.Statements)
+ 		g.line("%s = %s", result, last)
+@@ -177,26 +208,33 @@
+ 	case *ast.FunctionLiteral:
+ 		name := fmt.Sprintf("tsFunction%d", g.nextFunction)
+ 		g.nextFunction++
+-		body := &bodyGenerator{generator: g.generator}
++		body := &bodyGenerator{generator: g.generator, layout: newLayout(g.layout, node.Parameters, node.Body.Statements)}
++		body.frame("parent")
++		for i, parameter := range node.Parameters {
++			body.line("env.slots[%d] = args.at(%d)", body.layout.slots[parameter.Value], i)
++		}
+ 		last := body.block(node.Body.Statements)
+ 		body.line("return %s", last)
+-		g.functions = append(g.functions, "func "+name+"(env *scope) value {\n"+body.String()+"}\n")
+-		parameters := make([]string, len(node.Parameters))
+-		display := make([]string, len(node.Parameters))
+-		for i, parameter := range node.Parameters {
+-			parameters[i] = strconv.Quote(parameter.Value)
+-			display[i] = parameter.Value + ": " + node.Signature.Params[i].String()
+-		}
+-		printed := "fn(" + strings.Join(display, ", ") + ") -> " + node.Signature.Result.String() + " { " + node.Body.String() + " }"
+-		return g.temporary(fmt.Sprintf("value{kind: functionKind, function: &function{parameters: []string{%s}, parent: env, body: %s, display: %q}}", strings.Join(parameters, ","), name, printed))
++		g.functions = append(g.functions, "func "+name+"(parent *scope, output io.Writer, depth int, args arguments) value {\n"+body.String()+"}\n")
++		printed := (&object.Function{Parameters: node.Parameters, Body: node.Body, Signature: node.Signature}).Inspect()
++		g.functions = append(g.functions, fmt.Sprintf("var %sCode = functionCode{parameters: %d, display: %q, body: %s}\n", name, len(node.Parameters), printed, name))
++		return g.temporary(fmt.Sprintf("value{kind: functionKind, function: &function{code: &%sCode, parent: env}}", name))
+ 	case *ast.CallExpression:
+ 		callee := g.expression(node.Function)
+-		g.temporary(fmt.Sprintf("checkCall(%s, %d, env)", callee, len(node.Arguments)))
+-		args := []string{callee, "env"}
++		g.temporary(fmt.Sprintf("checkCall(%s, %d, depth)", callee, len(node.Arguments)))
++		args := []string{}
+ 		for _, argument := range node.Arguments {
+ 			args = append(args, g.expression(argument))
+ 		}
+-		return g.temporary("call(" + strings.Join(args, ", ") + ")")
++		first, tail := args, []string{}
++		if len(first) > 2 {
++			first, tail = args[:2], args[2:]
++		}
++		packed := fmt.Sprintf("arguments{first: [2]value{%s}, count: %d", strings.Join(first, ","), len(args))
++		if len(tail) != 0 {
++			packed += ", tail: []value{" + strings.Join(tail, ",") + "}"
++		}
++		return g.temporary("call(" + callee + ", output, depth, " + packed + "})")
+ 	default:
+ 		panic(fmt.Sprintf("compiler: unsupported checked expression %T", expression))
+ 	}
+--- a/compiler/rt/runtime.go
++++ b/compiler/rt/runtime.go
+@@ -14,83 +14,74 @@
+ type kind uint8
+ 
+ const (
+-	nullKind kind = iota
++	unsetKind kind = iota // A declaration's slot exists before its initializer runs.
++	nullKind
+ 	intKind
+ 	stringKind
+ 	boolKind
+ 	functionKind
+ 	builtinKind
+ 	errorKind
+-	returnKind
+ )
+ 
+ type value struct {
+ 	kind     kind
+ 	integer  int64
+ 	text     string
+-	boolean  bool
+ 	function *function
+-	returned *value
++}
++
++var nullValue = value{kind: nullKind}
++
++// The first two arguments travel by value. Longer lists use a tail slice.
++// Passing a slice to an indirect function call would force even one integer
++// argument onto the heap because Go cannot prove the callee does not retain it.
++type arguments struct {
++	first [2]value
++	tail  []value
++	count int
++}
++
++func (a arguments) at(index int) value {
++	if index < len(a.first) {
++		return a.first[index]
++	}
++	return a.tail[index-len(a.first)]
++}
++
++type functionCode struct {
++	parameters int
++	display    string
++	body       func(*scope, io.Writer, int, arguments) value
+ }
+ 
+ type function struct {
+-	parameters []string
+-	parent     *scope
+-	body       func(*scope) value
+-	display    string
+-	builtin    func(io.Writer, []value) value
+-}
+-
+-type binding struct {
+-	value    value
+-	constant bool
++	code    *functionCode
++	parent  *scope
++	builtin func(io.Writer, arguments) value
+ }
+ 
+ // Blocks share a scope. Closures retain the scope itself so later declarations
+ // and replacements remain visible, including names that shadow an outer scope.
+ type scope struct {
+-	bindings map[string]binding
+-	parent   *scope
+-	output   io.Writer
+-	depth    int
+-}
+-
+-func (s *scope) get(name string) value {
+-	for current := s; current != nil; current = current.parent {
+-		if binding, ok := current.bindings[name]; ok {
+-			return binding.value
+-		}
+-	}
+-	if builtin, ok := builtins[name]; ok {
+-		return builtin
+-	}
+-	return failure("identifier not found: %s", name)
+-}
+-
+-func (s *scope) set(name string, v value, constant bool) value {
+-	if previous, exists := s.bindings[name]; exists {
+-		if constant {
+-			return failure("cannot redeclare binding as constant: %s", name)
+-		}
+-		if previous.constant {
+-			return failure("cannot replace constant: %s", name)
+-		}
+-	}
+-	s.bindings[name] = binding{value: v, constant: constant}
+-	return value{}
++	slots  []value
++	parent *scope
+ }
+ 
+ func failure(format string, args ...any) value {
+ 	return value{kind: errorKind, text: fmt.Sprintf(format, args...)}
+ }
+ 
+-func control(v value) bool { return v.kind == errorKind || v.kind == returnKind }
+-
+-func returned(v value) value { return value{kind: returnKind, returned: &v} }
+-
+-func truth(v value) bool { return v.kind != nullKind && (v.kind != boolKind || v.boolean) }
+-
+-func boolean(v bool) value { return value{kind: boolKind, boolean: v} }
++func control(v value) bool { return v.kind == errorKind }
++
++func truth(v value) bool { return v.kind != nullKind && (v.kind != boolKind || v.integer != 0) }
++
++func boolean(v bool) value {
++	if v {
++		return value{kind: boolKind, integer: 1}
++	}
++	return value{kind: boolKind}
++}
+ 
+ func (v value) inspect() string {
+ 	switch v.kind {
+@@ -99,9 +90,9 @@
+ 	case stringKind:
+ 		return v.text
+ 	case boolKind:
+-		return strconv.FormatBool(v.boolean)
++		return strconv.FormatBool(v.integer != 0)
+ 	case functionKind:
+-		return v.function.display
++		return v.function.code.display
+ 	case builtinKind:
+ 		return "<built-in function>"
+ 	default:
+@@ -134,7 +125,7 @@
+ 			case stringKind:
+ 				equal = left.text == right.text
+ 			case boolKind:
+-				equal = left.boolean == right.boolean
++				equal = left.integer == right.integer
+ 			case functionKind, builtinKind:
+ 				equal = left.function == right.function
+ 			}
+@@ -191,13 +182,7 @@
+ 		if b < 0 {
+ 			return failure("negative integer exponent")
+ 		}
+-		result = 1
+-		for ; b > 0; b >>= 1 {
+-			if b&1 != 0 {
+-				result *= a
+-			}
+-			a *= a
+-		}
++		result = power(a, b)
+ 	case "&":
+ 		result = a & b
+ 	case "|":
+@@ -221,55 +206,59 @@
+ 	return value{kind: intKind, integer: result}
+ }
+ 
++func power(base, exponent int64) int64 {
++	result := int64(1)
++	for ; exponent > 0; exponent >>= 1 {
++		if exponent&1 != 0 {
++			result *= base
++		}
++		base *= base
++	}
++	return result
++}
++
+ // Dispatch guards run before argument evaluation, just as in the interpreter.
+-func checkCall(callee value, count int, caller *scope) value {
++func checkCall(callee value, count, depth int) value {
+ 	if callee.kind == builtinKind {
+-		return value{}
++		return nullValue
+ 	}
+ 	if callee.kind != functionKind {
+ 		return failure("not a function")
+ 	}
+-	if count != len(callee.function.parameters) {
+-		return failure("wrong number of arguments: got=%d, want=%d", count, len(callee.function.parameters))
+-	}
+-	if caller.depth >= 256 {
++	if count != callee.function.code.parameters {
++		return failure("wrong number of arguments: got=%d, want=%d", count, callee.function.code.parameters)
++	}
++	if depth >= 256 {
+ 		return failure("maximum call depth exceeded")
+ 	}
+-	return value{}
+-}
+-
+-func call(callee value, caller *scope, args ...value) value {
++	return nullValue
++}
++
++func call(callee value, output io.Writer, depth int, args arguments) value {
+ 	f := callee.function
+ 	if callee.kind == builtinKind {
+-		return f.builtin(caller.output, args)
+-	}
+-	env := &scope{bindings: make(map[string]binding), parent: f.parent, output: caller.output, depth: caller.depth + 1}
+-	for i, parameter := range f.parameters {
+-		env.set(parameter, args[i], false)
+-	}
+-	result := f.body(env)
+-	if result.kind == returnKind {
+-		return *result.returned
+-	}
+-	return result
++		return f.builtin(output, args)
++	}
++	return f.code.body(f.parent, output, depth+1, args)
+ }
+ 
+ var builtins = map[string]value{
+-	"len": builtin(func(_ io.Writer, args []value) value {
+-		return value{kind: intKind, integer: int64(utf8.RuneCountInString(args[0].text))}
+-	}),
+-	"byte_len": builtin(func(_ io.Writer, args []value) value {
+-		return value{kind: intKind, integer: int64(len(args[0].text))}
+-	}),
+-	"contains": builtin(func(_ io.Writer, args []value) value {
+-		return boolean(strings.Contains(args[0].text, args[1].text))
++	"len": builtin(func(_ io.Writer, args arguments) value {
++		return value{kind: intKind, integer: int64(utf8.RuneCountInString(args.at(0).text))}
++	}),
++	"byte_len": builtin(func(_ io.Writer, args arguments) value {
++		return value{kind: intKind, integer: int64(len(args.at(0).text))}
++	}),
++	"contains": builtin(func(_ io.Writer, args arguments) value {
++		return boolean(strings.Contains(args.at(0).text, args.at(1).text))
+ 	}),
+ 	"slice": builtin(slice),
+-	"str": builtin(func(_ io.Writer, args []value) value {
+-		return value{kind: stringKind, text: args[0].inspect()}
+-	}),
+-	"print": builtin(func(out io.Writer, args []value) value {
+-		for i, arg := range args {
++	"str": builtin(func(_ io.Writer, args arguments) value {
++		return value{kind: stringKind, text: args.at(0).inspect()}
++	}),
++	"print": builtin(func(out io.Writer, args arguments) value {
++		for i := 0; i < args.count; i++ {
++			arg := args.at(i)
+ 			if i > 0 {
+ 				if _, err := io.WriteString(out, " "); err != nil {
+ 					return failure("print: %s", err)
+@@ -282,16 +271,16 @@
+ 		if _, err := fmt.Fprintln(out); err != nil {
+ 			return failure("print: %s", err)
+ 		}
+-		return value{}
+-	}),
+-}
+-
+-func builtin(body func(io.Writer, []value) value) value {
++		return nullValue
++	}),
++}
++
++func builtin(body func(io.Writer, arguments) value) value {
+ 	return value{kind: builtinKind, function: &function{builtin: body}}
+ }
+ 
+-func slice(_ io.Writer, args []value) value {
+-	text, start, end := args[0].text, args[1].integer, args[2].integer
++func slice(_ io.Writer, args arguments) value {
++	text, start, end := args.at(0).text, args.at(1).integer, args.at(2).integer
+ 	if start < 0 || end < start {
+ 		return failure("slice: indexes out of range: start=%d, end=%d, length=%d", start, end, utf8.RuneCountInString(text))
+ 	}
+@@ -315,9 +304,8 @@
+ 	return failure("slice: indexes out of range: start=%d, end=%d, length=%d", start, end, index)
+ }
+ 
+-func execute(program func(*scope) value, out, errOut io.Writer) int {
+-	env := &scope{bindings: make(map[string]binding), output: out}
+-	result := program(env)
++func execute(program func(io.Writer, int) value, out, errOut io.Writer) int {
++	result := program(out, 0)
+ 	if result.kind == errorKind {
+ 		fmt.Fprintln(errOut, "ERROR: "+result.text)
+ 		return 1
+@@ -325,6 +313,6 @@
+ 	return 0
+ }
+ 
+-func run(program func(*scope) value) {
++func run(program func(io.Writer, int) value) {
+ 	os.Exit(execute(program, os.Stdout, os.Stderr))
+ }
+--- a/compiler/rt/runtime_test.go
++++ b/compiler/rt/runtime_test.go
+@@ -13,8 +13,8 @@
+ 
+ func TestOutputErrorStopsProgram(t *testing.T) {
+ 	var errOut bytes.Buffer
+-	status := execute(func(env *scope) value {
+-		return call(env.get("print"), env, value{kind: stringKind, text: "hello"})
++	status := execute(func(out io.Writer, depth int) value {
++		return call(builtins["print"], out, depth, arguments{first: [2]value{{kind: stringKind, text: "hello"}}, count: 1})
+ 	}, failedWriter{}, &errOut)
+ 	if status != 1 || errOut.String() != "ERROR: print: write failed\n" {
+ 		t.Fatalf("status=%d error=%q", status, errOut.String())
+@@ -22,16 +22,23 @@
+ }
+ 
+ func TestCapturedScopeObservesLateShadowing(t *testing.T) {
+-	outer := &scope{bindings: make(map[string]binding), output: io.Discard}
+-	outer.set("x", value{kind: intKind, integer: 1}, false)
+-	local := &scope{bindings: make(map[string]binding), parent: outer, output: io.Discard}
+-	f := value{kind: functionKind, function: &function{parent: local, body: func(env *scope) value { return env.get("x") }}}
+-	local.set("x", value{kind: intKind, integer: 2}, false)
+-	if result := call(f, local); result.kind != intKind || result.integer != 2 {
++	outer := &scope{slots: []value{{kind: intKind, integer: 1}}}
++	local := &scope{slots: make([]value, 1), parent: outer}
++	f := value{kind: functionKind, function: &function{parent: local, code: &functionCode{body: func(parent *scope, _ io.Writer, _ int, _ arguments) value {
++		if parent.slots[0].kind != unsetKind {
++			return parent.slots[0]
++		}
++		return parent.parent.slots[0]
++	}}}}
++	if result := call(f, io.Discard, 0, arguments{}); result.integer != 1 {
+ 		t.Fatalf("result=%+v", result)
+ 	}
+-	local.set("x", value{kind: intKind, integer: 3}, false)
+-	if result := call(f, local); result.integer != 3 {
++	local.slots[0] = value{kind: intKind, integer: 2}
++	if result := call(f, io.Discard, 0, arguments{}); result.kind != intKind || result.integer != 2 {
++		t.Fatalf("result=%+v", result)
++	}
++	local.slots[0] = value{kind: intKind, integer: 3}
++	if result := call(f, io.Discard, 0, arguments{}); result.integer != 3 {
+ 		t.Fatalf("result=%+v", result)
+ 	}
+ }
+--- /dev/null
++++ b/compiler/layout.go
+@@ -0,0 +1,133 @@
++package compiler
++
++import (
++	"fmt"
++	"go/interpreter/ast"
++	"go/interpreter/evaluator"
++)
++
++// Enumerate an entire function before lowering it. A later declaration can
++// shadow a name read by an earlier closure, so it needs a slot from the start.
++// An unset slot falls back to the corresponding name in an enclosing scope.
++type layout struct {
++	parent *layout
++	slots  map[string]int
++}
++
++func newLayout(parent *layout, parameters []*ast.Identifier, statements []ast.Statement) *layout {
++	l := &layout{parent: parent, slots: make(map[string]int)}
++	add := func(name string) {
++		if _, exists := l.slots[name]; !exists {
++			l.slots[name] = len(l.slots)
++		}
++	}
++	for _, parameter := range parameters {
++		add(parameter.Value)
++	}
++	var expression func(ast.Expression)
++	var block func([]ast.Statement)
++	block = func(statements []ast.Statement) {
++		for _, statement := range statements {
++			switch node := statement.(type) {
++			case *ast.LetStatement:
++				add(node.Name.Value)
++				expression(node.Value)
++			case *ast.ExpressionStatement:
++				expression(node.Expression)
++			case *ast.ReturnStatement:
++				expression(node.ReturnValue)
++			}
++		}
++	}
++	expression = func(expr ast.Expression) {
++		switch node := expr.(type) {
++		case *ast.PrefixExpression:
++			expression(node.Right)
++		case *ast.InfixExpression:
++			expression(node.Left)
++			expression(node.Right)
++		case *ast.IfExpression:
++			expression(node.Condition)
++			block(node.Consequence.Statements)
++			if node.Alternative != nil {
++				block(node.Alternative.Statements)
++			}
++		case *ast.CallExpression:
++			expression(node.Function)
++			for _, arg := range node.Arguments {
++				expression(arg)
++			}
++			// A function literal's declarations belong to its own layout.
++		}
++	}
++	block(statements)
++	return l
++}
++
++func (g *bodyGenerator) identifier(name string) string {
++	var reads []string
++	frame := "env"
++	for l := g.layout; l != nil; l = l.parent {
++		if index, ok := l.slots[name]; ok {
++			reads = append(reads, fmt.Sprintf("%s.slots[%d]", frame, index))
++		}
++		frame += ".parent"
++	}
++	fallback := fmt.Sprintf("failure(%q)", "identifier not found: "+name)
++	if _, builtin := evaluator.BuiltinSignature(name); builtin {
++		fallback = fmt.Sprintf("builtins[%q]", name)
++	}
++	if len(reads) == 0 {
++		return g.temporary(fallback)
++	}
++	v := fmt.Sprintf("v%d", g.nextValue)
++	g.nextValue++
++	g.line("%s := %s", v, reads[0])
++	for _, read := range reads[1:] {
++		g.line("if %s.kind == unsetKind {", v)
++		g.line("%s = %s", v, read)
++	}
++	g.line("if %s.kind == unsetKind { %s = %s }", v, v, fallback)
++	for range reads[1:] {
++		g.line("}")
++	}
++	g.line("if control(%s) { return %s }", v, v)
++	return v
++}
++
++// IntegerOperands/IntegerOperand are set by the shared checker. Keep integers
++// as Go int64 temporaries until a binding, call, or function result needs a
++// tagged value. Emit guards before operations that can raise a language error.
++func (g *bodyGenerator) integer(expr ast.Expression) string {
++	switch node := expr.(type) {
++	case *ast.IntegerLiteral:
++		return g.scalar(fmt.Sprintf("int64(%d)", node.Value))
++	case *ast.PrefixExpression:
++		if node.IntegerOperand {
++			right := g.integer(node.Right)
++			return g.scalar(node.Operator + right)
++		}
++	case *ast.InfixExpression:
++		if node.IntegerOperands {
++			left := g.integer(node.Left)
++			right := g.integer(node.Right)
++			switch node.Operator {
++			case "/", "%":
++				message := "division by zero"
++				if node.Operator == "%" {
++					message = "remainder by zero"
++				}
++				g.line("if %s == 0 { return failure(%q) }", right, message)
++			case "**":
++				g.line("if %s < 0 { return failure(\"negative integer exponent\") }", right)
++				return g.scalar(fmt.Sprintf("power(%s, %s)", left, right))
++			case "<<", ">>":
++				g.line("if %s < 0 { return failure(\"negative shift count\") }", right)
++				return g.scalar(fmt.Sprintf("%s %s uint64(%s)", left, node.Operator, right))
++			}
++			return g.scalar(fmt.Sprintf("%s %s %s", left, node.Operator, right))
++		}
++	}
++	v := g.expression(expr)
++	return g.scalar("(" + v + ").integer")
++}
+--- a/benchmarks/aot_test.go
++++ b/benchmarks/aot_test.go
+@@ -122,7 +122,7 @@
+ var resultSink value
+ 
+ func BenchmarkAoTExecution(b *testing.B) {
+-    run := func() value { return tsProgram(&scope{bindings: make(map[string]binding), output: io.Discard}) }
++    run := func() value { return tsProgram(io.Discard, 0) }
+     if got := run(); got.kind != intKind || got.integer != %d { b.Fatalf("unexpected result: %%+v", got) }
+     b.ReportAllocs()
+     b.ResetTimer()

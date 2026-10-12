@@ -34,6 +34,8 @@ Add splitting after arrays, then formatting and case conversion as scripts need 
 
 ## Further performance work
 
-Evaluate constant folding, unboxed function results, and a bytecode interpreter against the current AST evaluator. Representative workloads should establish whether each change improves execution time or allocation costs.
+The [ahead-of-time compiler](compilation.md) generates Go and builds standalone executables for the current language. It uses fixed binding slots and direct integer operations. Continue measuring it against the AST interpreter, then evaluate scalar function signatures, smaller argument handling for longer calls, and constant folding. Keep interpreter/compiler behavior checks as each backend changes.
+
+Evaluate unboxed function results and a bytecode interpreter against the current AST evaluator. Representative workloads should establish whether each change improves execution time or allocation costs.
 
 Lua's [runtime description](https://www.lua.org/manual/5.5/manual.html#1) is a reference for a register-based bytecode interpreter. Any benefit in TurtlScript needs a benchmark.

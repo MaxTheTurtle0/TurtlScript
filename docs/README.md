@@ -1,6 +1,11 @@
-# Documentation
+# TurtlScript documentation
 
-Start with [getting started](getting-started.md) to run the interpreter.
+TurtlScript is a statically typed programming language with an interpreter, an interactive REPL, and an ahead-of-time compiler. Both execution paths use the same syntax and type checker.
+
+## Run programs
+
+- [Getting started](getting-started.md) covers building the command, using the REPL, and running or compiling a file.
+- [Ahead-of-time compilation](compilation.md) explains native builds, generated Go, and backend limits.
 
 ## Language
 
@@ -15,7 +20,9 @@ Start with [getting started](getting-started.md) to run the interpreter.
 
 ## Performance reports
 
-These reports record measurements taken with Go 1.24.4. Their dates, workloads, raw samples, and baseline definitions are part of each report.
+The [AoT and interpreter comparison](aot-performance.md) measures the optimized Go backend and its initial baseline with Go 1.27.2. It includes execution, complete CLI runs, allocation costs, compilation, and profile evidence.
+
+The older reports measure the interpreter with Go 1.24.4. Each records its workloads, baselines, and raw samples:
 
 - [Core interpreter](performance.md)
 - [Strings](strings-performance.md)

@@ -1,0 +1,15 @@
+File: fibonacci.test
+Build ID: 989ba05fe540b77431f43a8753c1deaa37558b4f
+Type: alloc_space
+Time: 2026-10-12 01:23:18 CEST
+Showing nodes accounting for 9.62GB, 100% of 9.62GB total
+Dropped 19 nodes (cum <= 0.05GB)
+      flat  flat%   sum%        cum   cum%
+    7.56GB 78.64% 78.64%     7.56GB 78.64%  turtlscript-aot-bench/fibonacci.(*scope).set
+    1.04GB 10.84% 89.48%     9.61GB   100%  turtlscript-aot-bench/fibonacci.call
+    1.01GB 10.49%   100%     9.61GB 99.94%  turtlscript-aot-bench/fibonacci.tsFunction0
+         0     0%   100%     9.61GB 99.91%  testing.(*B).launch
+         0     0%   100%     9.62GB   100%  testing.(*B).runN
+         0     0%   100%     9.62GB   100%  turtlscript-aot-bench/fibonacci.BenchmarkAoTExecution
+         0     0%   100%     9.62GB   100%  turtlscript-aot-bench/fibonacci.BenchmarkAoTExecution.func1 (inline)
+         0     0%   100%     9.62GB   100%  turtlscript-aot-bench/fibonacci.tsProgram

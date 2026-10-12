@@ -1,0 +1,18 @@
+File: fibonacci.test
+Build ID: ccf316822b5618ebd0f05c548f4bddd6e2ed2645
+Type: cpu
+Time: 2026-10-12 01:34:26 CEST
+Duration: 5.47s, Total samples = 5.46s (99.85%)
+Showing nodes accounting for 5.45s, 99.82% of 5.46s total
+Dropped 13 nodes (cum <= 0.03s)
+      flat  flat%   sum%        cum   cum%
+     4.03s 73.81% 73.81%      5.45s 99.82%  turtlscript-aot-bench/fibonacci.tsFunction0
+     1.09s 19.96% 93.77%      5.45s 99.82%  turtlscript-aot-bench/fibonacci.call
+     0.19s  3.48% 97.25%      0.19s  3.48%  turtlscript-aot-bench/fibonacci.checkCall
+     0.11s  2.01% 99.27%      0.11s  2.01%  turtlscript-aot-bench/fibonacci.truth (inline)
+     0.03s  0.55% 99.82%      0.03s  0.55%  turtlscript-aot-bench/fibonacci.control (inline)
+         0     0% 99.82%      5.45s 99.82%  testing.(*B).launch
+         0     0% 99.82%      5.45s 99.82%  testing.(*B).runN
+         0     0% 99.82%      5.45s 99.82%  turtlscript-aot-bench/fibonacci.BenchmarkAoTExecution
+         0     0% 99.82%      5.45s 99.82%  turtlscript-aot-bench/fibonacci.BenchmarkAoTExecution.func1 (inline)
+         0     0% 99.82%      5.45s 99.82%  turtlscript-aot-bench/fibonacci.tsProgram

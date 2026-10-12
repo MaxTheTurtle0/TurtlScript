@@ -1,0 +1,360 @@
+{
+  "interpreter": {
+    "small/execution": {
+      "ns": 128.9,
+      "samples": 5,
+      "min_ns": 128.2,
+      "max_ns": 132.6,
+      "bytes": 200,
+      "allocs": 4
+    },
+    "small/pipeline": {
+      "ns": 3089.0,
+      "samples": 5,
+      "min_ns": 3058.0,
+      "max_ns": 3105.0,
+      "bytes": 3496,
+      "allocs": 55
+    },
+    "arithmetic/execution": {
+      "ns": 8649.0,
+      "samples": 5,
+      "min_ns": 8641.0,
+      "max_ns": 8820.0,
+      "bytes": 2232,
+      "allocs": 258
+    },
+    "arithmetic/pipeline": {
+      "ns": 157632.0,
+      "samples": 5,
+      "min_ns": 155575.0,
+      "max_ns": 162700.0,
+      "bytes": 180872,
+      "allocs": 324
+    },
+    "factorial/execution": {
+      "ns": 2279.0,
+      "samples": 5,
+      "min_ns": 2262.0,
+      "max_ns": 2300.0,
+      "bytes": 3312,
+      "allocs": 51
+    },
+    "factorial/pipeline": {
+      "ns": 5900.0,
+      "samples": 5,
+      "min_ns": 5865.0,
+      "max_ns": 5902.0,
+      "bytes": 7864,
+      "allocs": 122
+    },
+    "fibonacci/execution": {
+      "ns": 402876.0,
+      "samples": 5,
+      "min_ns": 399570.0,
+      "max_ns": 405957.0,
+      "bytes": 626056,
+      "allocs": 9581
+    },
+    "fibonacci/pipeline": {
+      "ns": 425361.0,
+      "samples": 5,
+      "min_ns": 418320.0,
+      "max_ns": 433346.0,
+      "bytes": 630872,
+      "allocs": 9658
+    },
+    "closures/execution": {
+      "ns": 8594.0,
+      "samples": 5,
+      "min_ns": 8498.0,
+      "max_ns": 8606.0,
+      "bytes": 13264,
+      "allocs": 262
+    },
+    "closures/pipeline": {
+      "ns": 44842.0,
+      "samples": 5,
+      "min_ns": 44489.0,
+      "max_ns": 49915.0,
+      "bytes": 65448,
+      "allocs": 534
+    },
+    "unicode/execution": {
+      "ns": 475435.0,
+      "samples": 5,
+      "min_ns": 473400.0,
+      "max_ns": 480092.0,
+      "bytes": 5320,
+      "allocs": 355
+    },
+    "unicode/pipeline": {
+      "ns": 596028.0,
+      "samples": 5,
+      "min_ns": 579297.0,
+      "max_ns": 617218.0,
+      "bytes": 95968,
+      "allocs": 1760
+    }
+  },
+  "native": {
+    "arithmetic": {
+      "ns": 3062.0,
+      "samples": 5,
+      "min_ns": 3061.0,
+      "max_ns": 3077.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "closures": {
+      "ns": 3659.0,
+      "samples": 5,
+      "min_ns": 3649.0,
+      "max_ns": 3667.0,
+      "bytes": 288,
+      "allocs": 6
+    },
+    "factorial": {
+      "ns": 936.6,
+      "samples": 5,
+      "min_ns": 936.1,
+      "max_ns": 946.2,
+      "bytes": 104,
+      "allocs": 3
+    },
+    "fibonacci": {
+      "ns": 184126.0,
+      "samples": 5,
+      "min_ns": 182155.0,
+      "max_ns": 187119.0,
+      "bytes": 104,
+      "allocs": 3
+    },
+    "small": {
+      "ns": 29.02,
+      "samples": 5,
+      "min_ns": 28.98,
+      "max_ns": 29.21,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "unicode": {
+      "ns": 471438.0,
+      "samples": 5,
+      "min_ns": 470984.0,
+      "max_ns": 471889.0,
+      "bytes": 1536,
+      "allocs": 32
+    }
+  },
+  "initial_native_recheck": {
+    "arithmetic": {
+      "ns": 21352.0,
+      "samples": 5,
+      "min_ns": 20906.0,
+      "max_ns": 21505.0,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "closures": {
+      "ns": 20050.0,
+      "samples": 5,
+      "min_ns": 19928.0,
+      "max_ns": 20493.0,
+      "bytes": 57120,
+      "allocs": 267
+    },
+    "factorial": {
+      "ns": 4739.0,
+      "samples": 5,
+      "min_ns": 4674.0,
+      "max_ns": 4807.0,
+      "bytes": 14768,
+      "allocs": 70
+    },
+    "fibonacci": {
+      "ns": 931246.0,
+      "samples": 5,
+      "min_ns": 911875.0,
+      "max_ns": 939953.0,
+      "bytes": 2861840,
+      "allocs": 14374
+    },
+    "small": {
+      "ns": 185.4,
+      "samples": 5,
+      "min_ns": 185.0,
+      "max_ns": 187.1,
+      "bytes": 0,
+      "allocs": 0
+    },
+    "unicode": {
+      "ns": 458917.0,
+      "samples": 5,
+      "min_ns": 457233.0,
+      "max_ns": 466748.0,
+      "bytes": 12528,
+      "allocs": 130
+    }
+  },
+  "cli": {
+    "small/interpreter": {
+      "ns": 1589892.0,
+      "samples": 5,
+      "min_ns": 1563963.0,
+      "max_ns": 1635623.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "small/aot": {
+      "ns": 1270968.0,
+      "samples": 5,
+      "min_ns": 1256665.0,
+      "max_ns": 1276749.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "arithmetic/interpreter": {
+      "ns": 1909558.0,
+      "samples": 5,
+      "min_ns": 1858334.0,
+      "max_ns": 1928184.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "arithmetic/aot": {
+      "ns": 1310970.0,
+      "samples": 5,
+      "min_ns": 1304596.0,
+      "max_ns": 1328258.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "factorial/interpreter": {
+      "ns": 1603913.0,
+      "samples": 5,
+      "min_ns": 1585085.0,
+      "max_ns": 1622599.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "factorial/aot": {
+      "ns": 1324033.0,
+      "samples": 5,
+      "min_ns": 1271433.0,
+      "max_ns": 1348313.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "fibonacci/interpreter": {
+      "ns": 2452613.0,
+      "samples": 5,
+      "min_ns": 2359091.0,
+      "max_ns": 2480265.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "fibonacci/aot": {
+      "ns": 1670243.0,
+      "samples": 5,
+      "min_ns": 1532665.0,
+      "max_ns": 1705167.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "closures/interpreter": {
+      "ns": 1618332.0,
+      "samples": 5,
+      "min_ns": 1604684.0,
+      "max_ns": 1693958.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "closures/aot": {
+      "ns": 1356959.0,
+      "samples": 5,
+      "min_ns": 1328050.0,
+      "max_ns": 1368238.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "unicode/interpreter": {
+      "ns": 2342125.0,
+      "samples": 5,
+      "min_ns": 2310283.0,
+      "max_ns": 2381180.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "unicode/aot": {
+      "ns": 2185160.0,
+      "samples": 5,
+      "min_ns": 2152920.0,
+      "max_ns": 2249465.0,
+      "bytes": null,
+      "allocs": null
+    }
+  },
+  "build": {
+    "small": {
+      "ns": 120701087.0,
+      "samples": 3,
+      "min_ns": 119712341.0,
+      "max_ns": 120752869.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "arithmetic": {
+      "ns": 128818169.0,
+      "samples": 3,
+      "min_ns": 127764815.0,
+      "max_ns": 131300089.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "factorial": {
+      "ns": 122016995.0,
+      "samples": 3,
+      "min_ns": 118549649.0,
+      "max_ns": 122331911.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "fibonacci": {
+      "ns": 120595171.0,
+      "samples": 3,
+      "min_ns": 119579392.0,
+      "max_ns": 122605025.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "closures": {
+      "ns": 124691661.0,
+      "samples": 3,
+      "min_ns": 123649487.0,
+      "max_ns": 125108967.0,
+      "bytes": null,
+      "allocs": null
+    },
+    "unicode": {
+      "ns": 125937310.0,
+      "samples": 3,
+      "min_ns": 123263263.0,
+      "max_ns": 126384869.0,
+      "bytes": null,
+      "allocs": null
+    }
+  },
+  "binary_bytes": {
+    "arithmetic": 2548342,
+    "closures": 2528840,
+    "factorial": 2395583,
+    "fibonacci": 2399639,
+    "small": 2395273,
+    "unicode": 2680830
+  },
+  "tool_bytes": 4248934,
+  "date": "2026-10-12",
+  "toolchain": "go1.27.2",
+  "host": "Linux amd64, AMD Ryzen 7 8745HS"
+}

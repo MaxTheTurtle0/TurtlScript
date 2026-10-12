@@ -1,0 +1,17 @@
+File: fibonacci.test
+Build ID: ccf316822b5618ebd0f05c548f4bddd6e2ed2645
+Type: alloc_space
+Time: 2026-10-12 01:34:32 CEST
+Showing nodes accounting for 3891.62kB, 100% of 3891.62kB total
+Showing top 10 nodes out of 19
+      flat  flat%   sum%        cum   cum%
+ 1536.04kB 39.47% 39.47%  1536.04kB 39.47%  turtlscript-aot-bench/fibonacci.tsProgram
+ 1184.27kB 30.43% 69.90%  1184.27kB 30.43%  runtime/pprof.StartCPUProfile
+  655.29kB 16.84% 86.74%   655.29kB 16.84%  compress/flate.NewWriter (inline)
+  516.01kB 13.26%   100%   516.01kB 13.26%  runtime/pprof.(*profMap).lookup
+         0     0%   100%   655.29kB 16.84%  compress/gzip.(*Writer).Write
+         0     0%   100%  1184.27kB 30.43%  main.main
+         0     0%   100%  1184.27kB 30.43%  runtime.main
+         0     0%   100%   516.01kB 13.26%  runtime/pprof.(*profileBuilder).addCPUData
+         0     0%   100%   655.29kB 16.84%  runtime/pprof.(*profileBuilder).build
+         0     0%   100%   655.29kB 16.84%  runtime/pprof.(*profileBuilder).flush

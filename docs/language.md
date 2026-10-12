@@ -1,6 +1,6 @@
 # Language guide
 
-This guide covers expressions, functions, operators, and strings. See [types and constants](types.md) for inference and scope rules, or [getting started](getting-started.md) to run a program.
+The interpreter and compiler use the same syntax and language rules. See [types and constants](types.md) for inference and scope rules, or [getting started](getting-started.md) to run or compile a program.
 
 ## Expressions and declarations
 
@@ -84,7 +84,7 @@ print(operation(answer, 1)); // 43
 print(apply(double, 21));    // 42
 ```
 
-Each binding and function has one fixed type. The checker rejects incompatible arguments, returns, and replacements before execution. An unresolved signature needs an annotation; functions are not implicitly generic. `const` prevents replacing a binding in its scope, and requires an initializer.
+Each binding and function has one fixed type. The checker rejects incompatible arguments, returns, and replacements before execution or code generation. An unresolved signature needs an annotation; functions are not implicitly generic. `const` prevents replacing a binding in its scope, and requires an initializer.
 
 The REPL checks each entry against types and constants from previous entries. A function's signature must resolve within the entry that declares it.
 
