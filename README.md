@@ -2,7 +2,7 @@
 
 <img src="assets/branding/turtlscript-logo.svg" alt="TurtlScript logo" width="480">
 
-TurtlScript is a statically typed programming language written in Go. It has type inference, optional type annotations, an interpreter with an interactive REPL, and an ahead-of-time compiler that builds standalone executables.
+TurtlScript is a statically typed programming language written in Go. It has type inference, optional type annotations, an interpreter with native JIT compilation and an interactive REPL, and an ahead-of-time compiler that builds standalone executables.
 
 I started this project to learn how interpreters work, following Thorsten Ball's [Writing an Interpreter in Go](https://interpreterbook.com/) and adding a few features of my own.
 
@@ -27,10 +27,13 @@ go build -o turtls .
 
 Run `./turtls` without arguments to start the REPL. Compiled programs run without Go or TurtlScript.
 
+The interpreter compiles hot scalar functions to native code on supported amd64 and arm64 platforms. Other code continues through the interpreter. Use `./turtls -no-jit` or `./turtls -no-jit file.turtls` to disable it. See [JIT compilation](docs/jit.md) for supported code and platforms.
+
 ## Documentation
 
 - [Getting started](docs/getting-started.md)
 - [Ahead-of-time compilation](docs/compilation.md)
+- [JIT compilation](docs/jit.md)
 - [Language guide](docs/language.md)
 - [Types and constants](docs/types.md)
 - [Development and benchmarks](docs/development.md)

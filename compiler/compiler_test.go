@@ -83,6 +83,7 @@ func TestInterpreterParity(t *testing.T) {
 			}
 			var wantOut, wantError bytes.Buffer
 			env := object.NewEnvironment()
+			env.DisableJIT = true
 			env.Output = &wantOut
 			wantStatus := 0
 			result := evaluator.Eval(program, env)

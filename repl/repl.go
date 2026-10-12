@@ -14,10 +14,19 @@ import (
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) error {
+	return StartWithOptions(in, out, Options{})
+}
+
+type Options struct {
+	DisableJIT bool
+}
+
+func StartWithOptions(in io.Reader, out io.Writer, options Options) error {
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 4096), 1024*1024)
 	env := object.NewEnvironment()
 	env.Output = out
+	env.DisableJIT = options.DisableJIT
 	types := checker.NewSession()
 	for {
 		if _, err := io.WriteString(out, PROMPT); err != nil {

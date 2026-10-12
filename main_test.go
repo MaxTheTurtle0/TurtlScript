@@ -72,6 +72,27 @@ func TestInteractiveExecution(t *testing.T) {
 	}
 }
 
+func TestJITCLIOptions(t *testing.T) {
+	source := `let f=fn(n:int)->int{if n<2{return n};f(n-1)+f(n-2)};print(f(16));`
+	path := filepath.Join(t.TempDir(), "jit.turtls")
+	if err := os.WriteFile(path, []byte(source), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{path}, {"-no-jit", path}, {"--no-jit", path}} {
+		var out, errOut bytes.Buffer
+		if status := run(args, nil, &out, &errOut); status != 0 || out.String() != "987\n" || errOut.Len() != 0 {
+			t.Fatal(status, out.String(), errOut.String())
+		}
+	}
+	var out, errOut bytes.Buffer
+	if status := run([]string{"-no-jit"}, strings.NewReader(source+"\n.quit\n"), &out, &errOut); status != 0 || !strings.Contains(out.String(), "987\n") {
+		t.Fatal(status, out.String(), errOut.String())
+	}
+	if status := run([]string{"-unknown"}, nil, &out, &errOut); status != 1 {
+		t.Fatal("unknown flag accepted")
+	}
+}
+
 func TestCompilerCommands(t *testing.T) {
 	dir := t.TempDir()
 	source := filepath.Join(dir, "source with spaces.turtls")

@@ -22,6 +22,7 @@ type Environment struct {
 	outer        *Environment
 	Output       io.Writer
 	CallDepth    int
+	DisableJIT   bool
 }
 
 func NewEnvironment() *Environment {
@@ -29,7 +30,7 @@ func NewEnvironment() *Environment {
 }
 
 func NewEnclosedEnvironment(outer *Environment) *Environment {
-	return &Environment{outer: outer, Output: outer.Output}
+	return &Environment{outer: outer, Output: outer.Output, DisableJIT: outer.DisableJIT}
 }
 
 func (e *Environment) Get(name string) (Object, bool) {

@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"go/interpreter/ast"
+	"go/interpreter/jit"
 	"go/interpreter/object"
 )
 
@@ -12,7 +13,12 @@ var (
 	FALSE = &object.Boolean{Value: false}
 )
 
-const maxCallDepth = 256
+const maxCallDepth = jit.MaxCallDepth
+
+// JITThreshold counts calls per closure. Cold and unchecked functions use the AST.
+const JITThreshold = 64
+
+func JITAvailable() bool { return jit.Supported() }
 
 func Eval(node ast.Node, env *object.Environment) object.Object {
 	switch node := node.(type) {
@@ -174,12 +180,31 @@ func evalCall(call *ast.CallExpression, caller *object.Environment) object.Objec
 		env := object.NewEnclosedEnvironment(function.Env)
 		env.Output = caller.Output
 		env.CallDepth = caller.CallDepth + 1
+		env.DisableJIT = caller.DisableJIT
 		for i, argument := range call.Arguments {
 			value := Eval(argument, caller)
 			if isControlFlow(value) {
 				return value
 			}
 			env.Set(function.Parameters[i].Value, value)
+		}
+		if !caller.DisableJIT && function.Signature != nil && jit.Supported() {
+			if function.JIT.Calls.Add(1) >= JITThreshold {
+				function.JIT.CompileOnce.Do(func() {
+					function.JIT.Code, _ = jit.Compile(function)
+				})
+				if code := function.JIT.Code; code != nil {
+					if result, ok := code.Call(function, env); ok {
+						switch value := result.(type) {
+						case *object.Boolean:
+							return nativeBoolToBooleanObject(value.Value)
+						case *object.Null:
+							return NULL
+						}
+						return result
+					}
+				}
+			}
 		}
 		result := Eval(function.Body, env)
 		if value, ok := result.(*object.ReturnValue); ok {

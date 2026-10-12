@@ -21,6 +21,20 @@ func TestREPLRecoversAndKeepsEnvironment(t *testing.T) {
 	}
 }
 
+func TestREPLHotFunctionsAndReplacement(t *testing.T) {
+	input := "let x=1;let f=fn(n:int)->int{x+n};\n" + strings.Repeat("f(1)\n", 64) +
+		"let x=40;\nf(2)\nlet f=fn(n:int)->int{100};\nf(2)\n.quit\n"
+	for _, disabled := range []bool{false, true} {
+		var out bytes.Buffer
+		if err := StartWithOptions(strings.NewReader(input), &out, Options{DisableJIT: disabled}); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), ">> 42\n") || !strings.Contains(out.String(), ">> 100\n") || strings.Contains(out.String(), "ERROR:") {
+			t.Fatal(out.String())
+		}
+	}
+}
+
 func TestREPLStringsAndRecovery(t *testing.T) {
 	input := "let text=\"hé🐢\";\nlet text=\"bad\\q\";\ntext\nlen(text)\nslice(text,0,9)\nslice(text,1,3)\n.quit\n"
 	var out bytes.Buffer

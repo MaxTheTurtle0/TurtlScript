@@ -22,6 +22,8 @@ Files must have the `.turtls` extension. Programs write output through `print`. 
 
 The interpreter checks the whole file before execution. A syntax or type error prevents all output and other effects. A runtime error stops execution but preserves effects that already occurred.
 
+Hot scalar functions compile to native code automatically in files and the REPL. This does not require Go to be installed when running a built `turtls` command. Use `go run . -no-jit examples/functions.turtls` or `go run . -no-jit` to use the AST interpreter throughout. See [JIT compilation](jit.md) for eligibility and platform support.
+
 The repository includes examples of [functions](../examples/functions.turtls), [strings](../examples/strings.turtls), and [types and constants](../examples/types.turtls). Run either of the other examples with:
 
 ```sh

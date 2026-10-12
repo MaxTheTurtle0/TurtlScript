@@ -38,4 +38,6 @@ The [ahead-of-time compiler](compilation.md) generates Go and builds standalone 
 
 Evaluate unboxed function results and a bytecode interpreter against the current AST evaluator. Representative workloads should establish whether each change improves execution time or allocation costs.
 
+The [native JIT](jit.md) compiles hot scalar functions through WebAssembly on supported amd64 and arm64 hosts. Further work includes calls between compiled functions, string operations, sharing compiled code between closures, and tuning compilation thresholds from representative workloads.
+
 Lua's [runtime description](https://www.lua.org/manual/5.5/manual.html#1) is a reference for a register-based bytecode interpreter. Any benefit in TurtlScript needs a benchmark.

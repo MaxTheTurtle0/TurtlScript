@@ -1,6 +1,6 @@
 # Ahead-of-time compilation
 
-TurtlScript has an AST interpreter and an ahead-of-time compiler. Both use the same lexer, parser, and static type checker. The first compiler backend generates Go and invokes the Go toolchain to produce a native executable.
+TurtlScript has an AST interpreter with a [native JIT](jit.md) and an ahead-of-time compiler. Both use the same lexer, parser, and static type checker. The ahead-of-time backend generates Go and invokes the Go toolchain to produce a native executable.
 
 ## Build an executable
 
@@ -55,7 +55,7 @@ Each function body constructs its frame from a fixed-size Go array. Go can keep 
 
 Bindings, function arguments, and results still carry runtime type tags, and calls still use runtime function objects. The backend does not yet specialize complete function signatures to Go scalar types or perform a separate TurtlScript constant-folding pass. The Go toolchain applies its usual optimizations to generated code. See the [performance comparison](aot-performance.md) for measured execution, startup, allocation, and build costs, including the initial backend baseline.
 
-`build` uses the installed Go toolchain and honors `GOOS` and `GOARCH`. Cross compilation has the same target and toolchain constraints as Go. There are no compiler options for optimization, debugging information, or source maps yet. The REPL continues to use the interpreter.
+`build` uses the installed Go toolchain and honors `GOOS` and `GOARCH`. Cross compilation has the same target and toolchain constraints as Go. There are no compiler options for optimization, debugging information, or source maps yet. The REPL uses the interpreter with automatic JIT compilation of eligible hot functions.
 
 ## Verification
 
